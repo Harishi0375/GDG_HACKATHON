@@ -1,4 +1,4 @@
-# src/vllm_handler.py
+#vllm_handler.py
 import logging
 import os
 from PIL import Image # For handling images
@@ -43,7 +43,7 @@ def initialize_vertex_ai():
 
     try:
         logging.info(f"Initializing Vertex AI for project '{config.GCP_PROJECT_ID}' in region '{config.GCP_REGION}'")
-        # Ensure region is set correctly (e.g., us-central1 worked for flash model)
+        # Ensure region is set correctly (e.g., us-central1 or europe-west3 worked for flash model)
         vertexai.init(project=config.GCP_PROJECT_ID, location=config.GCP_REGION)
         _vertex_ai_initialized = True
         logging.info("Vertex AI initialized successfully.")
@@ -130,7 +130,7 @@ def analyze_content(file_path: str) -> str:
                  return "Error: PDF processing requires PyMuPDF. Please install it (`pip install PyMuPDF`)."
             try:
                 # Render each page as an image and add to request parts
-                MAX_PDF_PAGES_TO_SEND = 5 # Limit pages to avoid exceeding API limits/cost
+                MAX_PDF_PAGES_TO_SEND = 5 # Limit pages for API request size/cost
                 doc = utils.fitz.open(file_path)
                 num_pages = len(doc)
                 logging.info(f"Processing PDF with {num_pages} pages. Sending first {min(num_pages, MAX_PDF_PAGES_TO_SEND)} pages.")
@@ -175,25 +175,30 @@ def analyze_content(file_path: str) -> str:
         logging.info(f"Using model: {model._model_name}")
 
         # *** Define the prompt including the Categorization step ***
+        # This prompt is designed to guide the Flash model towards precise output.
         prompt = """
-        Analyze the provided document content (which could be an image, text, or image(s) rendered from a PDF).
-        Your goal is to act as an expert document analyst requiring high precision.
+        Your task is to act as an expert document analyst. Analyze the provided document content meticulously. Even if the content is very short, analyze the content itself.
 
-        Follow these steps precisely:
-        1.  **Document Type:** Identify the type of document (e.g., handwritten notes, typed essay, scientific paper, form, receipt, general text, PDF page image). Note if handwriting is present.
-        2.  **Summary:** Provide a concise summary (1-2 sentences) of the document's main topic or purpose.
-        3.  **Key Information Extraction:** Identify and extract crucial pieces of information with high accuracy. Focus on:
-            * **Main points or arguments.**
-            * **Specific data points, numbers, dates, names, or definitions.**
-            * **If student work: extract the core answers or thesis.**
-            * **If a form: extract field names and their corresponding values.**
-        4.  **Localization:** For *each* key piece of information extracted, describe *precisely* where it is located.
-            * Text files: Approximate line number or paragraph.
-            * Images/PDF pages: Visual location (e.g., "top-left corner", "table row 3, column 2", "handwritten below title"). Mention page number for PDFs if multiple pages were sent.
-        5.  **Confidence Score:** For each extracted piece, provide a confidence level (High, Medium, Low).
-        6.  **Category:** Based on the content, assign ONE category from the following list: [Lecture Notes, Essay Draft, Research Paper, Assignment Submission, Admin Form, Other].
+        Follow these steps precisely and structure your output exactly as shown using Markdown headings:
 
-        Present the results in a structured, easy-to-read format with clear headings for each section (Document Type, Summary, Key Information & Localization, Category).
+        **Document Type:**
+        [Identify the type: e.g., Handwritten Notes, Typed Essay, Scientific Paper, Form, Receipt, General Text, PDF Page Image. Note if handwriting is present.]
+
+        **Summary:**
+        [Provide a concise 1-2 sentence summary of the main topic or purpose.]
+
+        **Key Information & Localization:**
+        [Identify and extract crucial pieces of information (main points, arguments, data, numbers, dates, names, definitions, student answers, form fields/values). For EACH piece of information, describe its precise location (Text files: line/paragraph; Images/PDF pages: visual location like 'top-left', 'table row 3, column 2', 'page 2 image, bottom margin'). Use bullet points for clarity.]
+        * [Extracted Info 1]
+            * Location: [Precise location description]
+            * Confidence: [High, Medium, or Low]
+        * [Extracted Info 2]
+            * Location: [Precise location description]
+            * Confidence: [High, Medium, or Low]
+        * ... (continue for all key pieces)
+
+        **Category:**
+        [Assign ONE category based on the content from this list: Lecture Notes, Essay Draft, Research Paper, Assignment Submission, Admin Form, Other. If unsure, state 'Other'.]
         """
 
         # Combine the prompt and the content parts
@@ -228,13 +233,15 @@ def analyze_content(file_path: str) -> str:
         logging.info(f"Received response from model for file: {os.path.basename(file_path)}.")
 
         # Process the response, checking for blocks
+        analysis_result = "Error: Failed to process model response." # Default error
         try:
             # Check finish reason first for potential blocking
             if responses.candidates and responses.candidates[0].finish_reason != FinishReason.STOP:
                 finish_reason_name = FinishReason(responses.candidates[0].finish_reason).name
                 logging.error(f"Analysis stopped for {os.path.basename(file_path)} due to finish reason: {finish_reason_name}")
                 analysis_result = f"Error: Analysis stopped due to {finish_reason_name}. Check safety settings or input content."
-            elif hasattr(responses, 'text'):
+            # Check if text attribute exists and is not empty
+            elif hasattr(responses, 'text') and responses.text:
                  analysis_result = responses.text
             else:
                  # If finish reason is STOP but no text, it's likely an empty response

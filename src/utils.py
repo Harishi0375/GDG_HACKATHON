@@ -26,6 +26,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Define supported file extensions ---
+# *** Added .jpeg to the image extensions ***
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 SUPPORTED_TEXT_EXTENSIONS = {".txt"}
 SUPPORTED_PDF_EXTENSIONS = {".pdf"} # Added PDF
@@ -133,9 +134,6 @@ def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
     try:
         # Use regex to find sections based on headings like "**Document Type:**"
         # Regex looks for heading, captures content until next potential heading or end of string.
-        # Added flexibility for optional space after colon and potential markdown bolding.
-        # Added DOTALL flag to make '.' match newlines within a section.
-        # Added lookahead `(?=...)` to stop capturing before the next heading or end of string (\Z).
         doc_type_match = re.search(r"^\s*\**Document Type:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
         summary_match = re.search(r"^\s*\**Summary:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
         key_info_match = re.search(r"^\s*\**Key Information(?: & Localization)?:?\**\s*\n?(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
@@ -154,7 +152,6 @@ def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
              logging.warning("Could not parse 'Summary' section.")
 
         if key_info_match:
-            # Store the whole block for now. More complex parsing could extract individual items later if needed.
             parsed_data["key_info_localization"] = key_info_match.group(1).strip()
         else:
              logging.warning("Could not parse 'Key Information & Localization' section.")
