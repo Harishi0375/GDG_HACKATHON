@@ -2,3 +2,4 @@ google-cloud-aiplatform
 Pillow
 python-dotenv
 google-cloud-storage
+PyMuPDF

@@ -1,8 +1,18 @@
+# src/utils.py
 import os
 import logging
 import json
 import re # Import regular expressions for parsing
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple, Generator
+import io # For handling image bytes
+
+# Try importing fitz (PyMuPDF) and handle potential ImportError
+try:
+    import fitz # PyMuPDF
+except ImportError:
+    logging.warning("PyMuPDF library not found. PDF processing will be disabled. "
+                    "Install it using: pip install PyMuPDF")
+    fitz = None # Set fitz to None if not installed
 
 # Import configuration variables (Input/Output Dirs)
 # This assumes config.py is in the same src directory
@@ -15,14 +25,15 @@ except ImportError:
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Define supported file extensions (can be expanded)
+# --- Define supported file extensions ---
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 SUPPORTED_TEXT_EXTENSIONS = {".txt"}
+SUPPORTED_PDF_EXTENSIONS = {".pdf"} # Added PDF
 
 def get_input_files(input_dir: str) -> List[str]:
     """
     Scans the input directory and returns a list of absolute paths
-    to supported image and text files.
+    to supported image, text, and PDF files.
 
     Args:
         input_dir: The path to the directory containing input files.
@@ -44,8 +55,10 @@ def get_input_files(input_dir: str) -> List[str]:
             file_path = os.path.join(input_dir, filename)
             if os.path.isfile(file_path):
                 _, file_extension = os.path.splitext(filename.lower())
+                # Check against all supported types
                 if file_extension in SUPPORTED_IMAGE_EXTENSIONS or \
-                   file_extension in SUPPORTED_TEXT_EXTENSIONS:
+                   file_extension in SUPPORTED_TEXT_EXTENSIONS or \
+                   (fitz and file_extension in SUPPORTED_PDF_EXTENSIONS): # Only support PDF if library is installed
                     supported_files.append(os.path.abspath(file_path))
                     logging.debug(f"Found supported file: {file_path}")
                 else:
@@ -72,7 +85,7 @@ def save_results_to_json(results_data: Dict[str, Any], output_dir: str, filename
     logging.info(f"Saving results to: {output_filepath}")
 
     try:
-        # Ensure the output directory exists (config.py should create it, but double-check)
+        # Ensure the output directory exists
         if not os.path.exists(output_dir):
             logging.warning(f"Output directory did not exist. Creating: {output_dir}")
             os.makedirs(output_dir)
@@ -90,7 +103,7 @@ def save_results_to_json(results_data: Dict[str, Any], output_dir: str, filename
         logging.error(f"An unexpected error occurred while saving results: {e}", exc_info=True)
 
 
-# --- NEW FUNCTION: Parse Gemini Analysis Text ---
+# --- UPDATED FUNCTION: Parse Gemini Analysis Text (with Category) ---
 def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
     """
     Parses the structured text output expected from the Gemini model based on the prompt.
@@ -100,30 +113,35 @@ def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
 
     Returns:
         A dictionary containing parsed sections (Document Type, Summary,
-        Key Information & Localization), or a default structure if parsing fails.
+        Key Information & Localization, Category), or a default structure if parsing fails.
     """
-    # Default structure to return, including the raw text
+    # Default structure to return, including the raw text and new category field
     parsed_data = {
         "document_type": "N/A",
         "summary": "N/A",
-        "key_info_localization": "N/A", # Store this section as raw text for now
+        "key_info_localization": "N/A",
+        "category": "N/A", # Added category field
         "raw_text": analysis_text # Always include the original text
     }
-    if not analysis_text or analysis_text.startswith("Error:"):
-        logging.warning("Analysis text is empty or contains an error, cannot parse.")
-        # Include the error message in the raw_text field if it's an error
-        if analysis_text and analysis_text.startswith("Error:"):
-             parsed_data["raw_text"] = analysis_text # Keep the error message
+    if not analysis_text or analysis_text.startswith("Error:") or analysis_text.startswith("Info:"):
+        logging.warning("Analysis text is empty or contains an error/info message, cannot parse.")
+        # Include the error/info message in the raw_text field
+        if analysis_text:
+             parsed_data["raw_text"] = analysis_text # Keep the message
         return parsed_data # Return default structure
 
     try:
         # Use regex to find sections based on headings like "**Document Type:**"
-        # Making the regex flexible for potential variations (e.g., bolding, colons, whitespace)
-        # It looks for the heading and captures everything until the next potential heading or end of string.
-        doc_type_match = re.search(r"^\s*\**Document Type:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
-        summary_match = re.search(r"^\s*\**Summary:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
-        # Find the start of Key Info section and capture everything after it
-        key_info_match = re.search(r"^\s*\**Key Information(?: & Localization)?:?\**\s*\n?(.*)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+        # Regex looks for heading, captures content until next potential heading or end of string.
+        # Added flexibility for optional space after colon and potential markdown bolding.
+        # Added DOTALL flag to make '.' match newlines within a section.
+        # Added lookahead `(?=...)` to stop capturing before the next heading or end of string (\Z).
+        doc_type_match = re.search(r"^\s*\**Document Type:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+        summary_match = re.search(r"^\s*\**Summary:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+        key_info_match = re.search(r"^\s*\**Key Information(?: & Localization)?:?\**\s*\n?(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+        # Regex for the new Category section
+        category_match = re.search(r"^\s*\**Category:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+
 
         if doc_type_match:
             parsed_data["document_type"] = doc_type_match.group(1).strip()
@@ -141,14 +159,71 @@ def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
         else:
              logging.warning("Could not parse 'Key Information & Localization' section.")
 
+        # Extract the category
+        if category_match:
+            parsed_data["category"] = category_match.group(1).strip()
+        else:
+             logging.warning("Could not parse 'Category' section.")
+
+
     except Exception as e:
         logging.error(f"Error parsing analysis text: {e}", exc_info=True)
         # Return default structure but indicate parsing error
         parsed_data["document_type"] = "Parsing Error"
         parsed_data["summary"] = "Parsing Error"
-        parsed_data["key_info_localization"] = f"Error during parsing: {e}"
+        parsed_data["key_info_localization"] = "Parsing Error"
+        parsed_data["category"] = "Parsing Error" # Indicate error here too
 
     return parsed_data
+
+
+# --- UPDATED FUNCTION: Render PDF Page to Image Bytes ---
+def render_pdf_page_to_image_bytes(pdf_path: str, page_num: int, zoom: int = 2) -> Optional[bytes]:
+    """
+    Renders a specific page of a PDF file into PNG image bytes using PyMuPDF.
+
+    Args:
+        pdf_path: Path to the PDF file.
+        page_num: The page number to render (0-indexed).
+        zoom: The zoom factor to apply (higher zoom = higher resolution). Default is 2.
+
+    Returns:
+        PNG image data as bytes, or None if an error occurs or PyMuPDF is not installed.
+    """
+    if not fitz:
+        logging.error("PyMuPDF (fitz) is not installed. Cannot render PDF.")
+        return None
+
+    doc = None # Initialize doc to None
+    try:
+        doc = fitz.open(pdf_path)
+        if page_num < 0 or page_num >= len(doc):
+            logging.error(f"Invalid page number {page_num} for PDF {pdf_path} with {len(doc)} pages.")
+            doc.close()
+            return None
+
+        page = doc.load_page(page_num)
+
+        # Configure the matrix for zooming
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat)
+
+        # *** Use tobytes() instead of save() for in-memory bytes ***
+        img_bytes = pix.tobytes(output="png") # Get bytes directly
+
+        doc.close() # Close the PDF document
+        logging.debug(f"Successfully rendered page {page_num} of {pdf_path} to image bytes.")
+        return img_bytes
+
+    except Exception as e:
+        logging.error(f"Failed to render page {page_num} of PDF {pdf_path}: {e}", exc_info=True)
+        # Ensure doc is closed even if error occurs during rendering
+        if doc:
+            try:
+                doc.close()
+            except Exception as close_err:
+                logging.error(f"Error closing PDF document after rendering error: {close_err}")
+        return None
 
 
 # --- Example Usage (for testing this script directly) ---
@@ -163,7 +238,7 @@ if __name__ == '__main__':
         for f in files:
             print(f"- {f}")
     else:
-        print(f"No supported files found in {config.INPUT_DIR}. Please add some .txt or image files.")
+        print(f"No supported files found in {config.INPUT_DIR}. Please add some .txt, image, or .pdf files.")
 
     print(f"\n--- Testing result saving to: {config.OUTPUT_DIR} ---")
     dummy_results = {
@@ -178,7 +253,7 @@ if __name__ == '__main__':
         print(f"Failed to save dummy results to {output_file_path}")
 
     print("\n--- Testing analysis parsing ---")
-    sample_analysis = """
+    sample_analysis_with_category = """
     **Document Type:** Typed essay (scanned image)
 
     **Summary:** This document discusses the impact of AI on education. It covers benefits and challenges.
@@ -188,9 +263,11 @@ if __name__ == '__main__':
     * Data Point: Student engagement increased by 15% (Found in the table titled 'Engagement Metrics', row 'With AI').
     * Definition: VLLM stands for Vision-Language Large Model (First paragraph, approximately line 3).
     * Challenge: Ensuring data privacy is crucial (Section 'Ethical Considerations', first bullet point).
+
+    **Category:** Research Paper
     """
-    parsed = parse_gemini_analysis(sample_analysis)
-    print("Parsed Data:")
+    parsed = parse_gemini_analysis(sample_analysis_with_category)
+    print("Parsed Data (with Category):")
     print(json.dumps(parsed, indent=2, ensure_ascii=False)) # Use ensure_ascii=False here too
 
     error_analysis = "Error: Model not found."
@@ -202,4 +279,25 @@ if __name__ == '__main__':
     parsed_malformed = parse_gemini_analysis(malformed_analysis)
     print("\nParsed Malformed Data:")
     print(json.dumps(parsed_malformed, indent=2, ensure_ascii=False))
+
+
+    # --- Testing PDF Rendering (Add a PDF to inputs/ for this) ---
+    print("\n--- Testing PDF Rendering ---")
+    test_pdf_path = os.path.join(config.INPUT_DIR, "example_document.pdf") # CHANGE FILENAME if needed
+    if os.path.exists(test_pdf_path):
+        print(f"Attempting to render page 0 of {test_pdf_path}")
+        img_bytes = render_pdf_page_to_image_bytes(test_pdf_path, 0)
+        if img_bytes:
+            print(f"Successfully rendered page 0 to {len(img_bytes)} bytes.")
+            # Optionally save the image bytes to a file for verification
+            try:
+                with open(os.path.join(config.OUTPUT_DIR, "rendered_page_0.png"), "wb") as img_file:
+                    img_file.write(img_bytes)
+                print("Saved rendered page to outputs/rendered_page_0.png")
+            except Exception as save_err:
+                print(f"Error saving rendered image: {save_err}")
+        else:
+            print("Failed to render PDF page.")
+    else:
+        print(f"Test PDF file not found: {test_pdf_path}. Add a PDF to '{config.INPUT_DIR}' to test rendering.")
 

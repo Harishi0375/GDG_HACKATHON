@@ -1,10 +1,14 @@
 {
+    "inputs/example_document.pdf": {
+        "status": "success",
+        "analysis": "Here's the analysis of the provided document:\n\n**Document Type:** PDF page image\n\n**Summary:** The document is a sample PDF file containing placeholder text (Lorem Ipsum) to demonstrate the layout and formatting of a PDF document.\n\n**Key Information & Localization:**\n\n*   **Main Point:** The document is a sample PDF file.\n    *   **Location:** Top of the document, below the title \"Sample PDF\".\n    *   **Confidence:** High\n*   **Content:** Lorem ipsum dolor sit amet, consectetuer adipiscing elit... (and other variations of placeholder text).\n    *   **Location:** Throughout the document, filling the body paragraphs.\n    *   **Confidence:** High\n*   **Purpose:** To demonstrate a PDF file's structure and formatting.\n    *   **Location:** Implied by the nature of the content and title.\n    *   **Confidence:** High\n\n**Category:** Other\n"
+    },
     "inputs/example_text.txt": {
-        "status": "error",
-        "message": "Error: An unexpected error occurred during analysis for example_text.txt: 404 Publisher Model `projects/maximal-cider-458611-r5/locations/us-central1/publishers/google/models/gemini-1.0-pro-vision-001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+        "status": "success",
+        "analysis": "Okay, I'm ready to analyze the document content. Please provide the document content (text, image, or PDF). I will then follow the steps outlined in your instructions to provide a detailed analysis.\n"
     },
     "inputs/test.png": {
-        "status": "error",
-        "message": "Error: An unexpected error occurred during analysis for test.png: 404 Publisher Model `projects/maximal-cider-458611-r5/locations/us-central1/publishers/google/models/gemini-1.0-pro-vision-001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+        "status": "success",
+        "analysis": "Here's the analysis of the provided image:\n\n**Document Type:** General Text\n\n**Summary:** The document presents the opening lines of Charles Dickens' \"A Tale of Two Cities,\" contrasting opposing characteristics of the era.\n\n**Key Information & Localization:**\n\n*   **Main Point:** \"It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness...\"\n    *   **Localization:** Lines 1-5\n    *   **Confidence Score:** High\n\n**Category:** Other\n"
     }
 }
