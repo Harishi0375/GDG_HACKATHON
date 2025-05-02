@@ -3,3 +3,5 @@ Pillow
 python-dotenv
 google-cloud-storage
 PyMuPDF
+pandas
+matplotlib
