@@ -26,18 +26,20 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Define supported file extensions ---
-# *** Added .jpeg to the image extensions ***
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
 SUPPORTED_TEXT_EXTENSIONS = {".txt"}
-SUPPORTED_PDF_EXTENSIONS = {".pdf"} # Added PDF
+SUPPORTED_PDF_EXTENSIONS = {".pdf"}
+# Combine all supported extensions for easier checking
+ALL_SUPPORTED_EXTENSIONS = SUPPORTED_TEXT_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_PDF_EXTENSIONS
 
+# --- UPDATED FUNCTION: Recursively find input files ---
 def get_input_files(input_dir: str) -> List[str]:
     """
-    Scans the input directory and returns a list of absolute paths
-    to supported image, text, and PDF files.
+    Recursively scans the input directory and its subdirectories, returning
+    a list of absolute paths to supported image, text, and PDF files.
 
     Args:
-        input_dir: The path to the directory containing input files.
+        input_dir: The path to the root directory containing input files/subfolders.
 
     Returns:
         A list of absolute file paths.
@@ -47,31 +49,38 @@ def get_input_files(input_dir: str) -> List[str]:
         logging.error(f"Input directory not found or is not a directory: {input_dir}")
         return supported_files # Return empty list
 
-    logging.info(f"Scanning for input files in: {input_dir}")
+    logging.info(f"Recursively scanning for supported files in: {input_dir}")
     try:
-        for filename in os.listdir(input_dir):
-            # Skip hidden files/folders like .DS_Store
-            if filename.startswith('.'):
-                continue
-            file_path = os.path.join(input_dir, filename)
-            if os.path.isfile(file_path):
+        # os.walk yields (directory_path, subdirectories, filenames) for each directory
+        for dirpath, dirnames, filenames in os.walk(input_dir):
+            # Optional: Skip hidden directories if needed
+            # dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+
+            for filename in filenames:
+                # Skip hidden files
+                if filename.startswith('.'):
+                    continue
+
+                # Check if the file extension is supported
                 _, file_extension = os.path.splitext(filename.lower())
-                # Check against all supported types
-                if file_extension in SUPPORTED_IMAGE_EXTENSIONS or \
-                   file_extension in SUPPORTED_TEXT_EXTENSIONS or \
-                   (fitz and file_extension in SUPPORTED_PDF_EXTENSIONS): # Only support PDF if library is installed
-                    supported_files.append(os.path.abspath(file_path))
-                    logging.debug(f"Found supported file: {file_path}")
+                if file_extension in ALL_SUPPORTED_EXTENSIONS:
+                    # Special check for PDF if PyMuPDF is not installed
+                    if file_extension in SUPPORTED_PDF_EXTENSIONS and not fitz:
+                        logging.warning(f"Skipping PDF file due to missing PyMuPDF: {filename}")
+                        continue
+
+                    full_path = os.path.join(dirpath, filename)
+                    supported_files.append(os.path.abspath(full_path)) # Store absolute path
+                    logging.debug(f"Found supported file: {full_path}")
                 else:
                     logging.debug(f"Skipping unsupported file type: {filename}")
-            else:
-                logging.debug(f"Skipping non-file item: {filename}")
 
     except Exception as e:
         logging.error(f"Error scanning input directory {input_dir}: {e}", exc_info=True)
 
-    logging.info(f"Found {len(supported_files)} supported files.")
+    logging.info(f"Found {len(supported_files)} supported files across all subdirectories.")
     return supported_files
+# --- END OF UPDATED FUNCTION ---
 
 def save_results_to_json(results_data: Dict[str, Any], output_dir: str, filename: str):
     """
@@ -134,10 +143,11 @@ def parse_gemini_analysis(analysis_text: str) -> Dict[str, Any]:
     try:
         # Use regex to find sections based on headings like "**Document Type:**"
         # Regex looks for heading, captures content until next potential heading or end of string.
+        # Made regex slightly more robust to variations in spacing and optional colons
         doc_type_match = re.search(r"^\s*\**Document Type:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
         summary_match = re.search(r"^\s*\**Summary:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
+        # Allow "Key Information & Localization" or just "Key Information"
         key_info_match = re.search(r"^\s*\**Key Information(?: & Localization)?:?\**\s*\n?(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
-        # Regex for the new Category section
         category_match = re.search(r"^\s*\**Category:?\**\s*(.*?)(?=\n\s*\**\w+(\s*&\s*\w+)?\s*:?\**\s*\n?|\Z)", analysis_text, re.MULTILINE | re.IGNORECASE | re.DOTALL)
 
 
@@ -196,7 +206,8 @@ def render_pdf_page_to_image_bytes(pdf_path: str, page_num: int, zoom: int = 2) 
         doc = fitz.open(pdf_path)
         if page_num < 0 or page_num >= len(doc):
             logging.error(f"Invalid page number {page_num} for PDF {pdf_path} with {len(doc)} pages.")
-            doc.close()
+            # Ensure doc is closed before returning None
+            if doc: doc.close()
             return None
 
         page = doc.load_page(page_num)
@@ -205,7 +216,7 @@ def render_pdf_page_to_image_bytes(pdf_path: str, page_num: int, zoom: int = 2) 
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
 
-        # *** Use tobytes() instead of save() for in-memory bytes ***
+        # Use tobytes() instead of save() for in-memory bytes
         img_bytes = pix.tobytes(output="png") # Get bytes directly
 
         doc.close() # Close the PDF document
@@ -228,22 +239,26 @@ if __name__ == '__main__':
     # This block runs only when the script is executed directly from the root folder using:
     # python -m src.utils
 
-    print(f"--- Testing file scanning in: {config.INPUT_DIR} ---")
-    files = get_input_files(config.INPUT_DIR)
+    # Test the updated get_input_files function
+    print(f"--- Testing recursive file scanning in: {config.INPUT_DIR} ---")
+    files = get_input_files(config.INPUT_DIR) # Use the updated function
     if files:
         print("Found files:")
         for f in files:
             print(f"- {f}")
     else:
-        print(f"No supported files found in {config.INPUT_DIR}. Please add some .txt, image, or .pdf files.")
+        print(f"No supported files found recursively in {config.INPUT_DIR}.")
 
+    # --- Other tests remain the same ---
     print(f"\n--- Testing result saving to: {config.OUTPUT_DIR} ---")
     dummy_results = {
         "inputs/file1.txt": {"status": "success", "analysis": "Dummy analysis 1"},
         "inputs/image1.jpg": {"status": "error", "message": "Dummy error 1"}
     }
-    save_results_to_json(dummy_results, config.OUTPUT_DIR, config.OUTPUT_FILENAME)
-    output_file_path = os.path.join(config.OUTPUT_DIR, config.OUTPUT_FILENAME)
+    # Ensure config defines OUTPUT_FILENAME
+    output_filename = getattr(config, 'OUTPUT_FILENAME', 'results.json') # Use default if not in config
+    save_results_to_json(dummy_results, config.OUTPUT_DIR, output_filename)
+    output_file_path = os.path.join(config.OUTPUT_DIR, output_filename)
     if os.path.exists(output_file_path):
         print(f"Successfully saved dummy results to {output_file_path}")
     else:
@@ -265,7 +280,7 @@ if __name__ == '__main__':
     """
     parsed = parse_gemini_analysis(sample_analysis_with_category)
     print("Parsed Data (with Category):")
-    print(json.dumps(parsed, indent=2, ensure_ascii=False)) # Use ensure_ascii=False here too
+    print(json.dumps(parsed, indent=2, ensure_ascii=False))
 
     error_analysis = "Error: Model not found."
     parsed_error = parse_gemini_analysis(error_analysis)
@@ -278,23 +293,31 @@ if __name__ == '__main__':
     print(json.dumps(parsed_malformed, indent=2, ensure_ascii=False))
 
 
-    # --- Testing PDF Rendering (Add a PDF to inputs/ for this) ---
+    # --- Testing PDF Rendering (Add a PDF to inputs/pdf/ or other subfolder) ---
     print("\n--- Testing PDF Rendering ---")
-    test_pdf_path = os.path.join(config.INPUT_DIR, "example_document.pdf") # CHANGE FILENAME if needed
-    if os.path.exists(test_pdf_path):
-        print(f"Attempting to render page 0 of {test_pdf_path}")
-        img_bytes = render_pdf_page_to_image_bytes(test_pdf_path, 0)
+    # Try finding an example PDF within the potentially nested structure
+    example_pdf_found = None
+    for f_path in files: # Use the list of files found recursively
+        if f_path.lower().endswith(".pdf"):
+            example_pdf_found = f_path
+            break
+
+    if example_pdf_found:
+        print(f"Attempting to render page 0 of {example_pdf_found}")
+        img_bytes = render_pdf_page_to_image_bytes(example_pdf_found, 0)
         if img_bytes:
             print(f"Successfully rendered page 0 to {len(img_bytes)} bytes.")
             # Optionally save the image bytes to a file for verification
             try:
-                with open(os.path.join(config.OUTPUT_DIR, "rendered_page_0.png"), "wb") as img_file:
+                # Ensure output dir exists
+                os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+                render_output_path = os.path.join(config.OUTPUT_DIR, "rendered_page_0.png")
+                with open(render_output_path, "wb") as img_file:
                     img_file.write(img_bytes)
-                print("Saved rendered page to outputs/rendered_page_0.png")
+                print(f"Saved rendered page to {render_output_path}")
             except Exception as save_err:
                 print(f"Error saving rendered image: {save_err}")
         else:
             print("Failed to render PDF page.")
     else:
-        print(f"Test PDF file not found: {test_pdf_path}. Add a PDF to '{config.INPUT_DIR}' to test rendering.")
-
+        print(f"No example PDF file found within '{config.INPUT_DIR}' or its subdirectories to test rendering.")

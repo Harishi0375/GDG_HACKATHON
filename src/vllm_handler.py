@@ -170,7 +170,7 @@ def analyze_content(file_path: str) -> str:
 
         # --- Prepare and send request to Gemini ---
         # *** Using the accessible Flash model based on testing and mentor feedback ***
-        model_name_to_use = "gemini-2.0-flash-001"
+        model_name_to_use = "gemini-2.0-flash-lite-001"
         model = GenerativeModel(model_name_to_use)
         logging.info(f"Using model: {model._model_name}")
 
