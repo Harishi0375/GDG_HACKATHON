@@ -1,0 +1,10 @@
+{
+    "inputs/example_text.txt": {
+        "status": "error",
+        "message": "Error: An unexpected error occurred during analysis for example_text.txt: 404 Publisher Model `projects/maximal-cider-458611-r5/locations/us-central1/publishers/google/models/gemini-1.0-pro-vision-001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+    },
+    "inputs/test.png": {
+        "status": "error",
+        "message": "Error: An unexpected error occurred during analysis for test.png: 404 Publisher Model `projects/maximal-cider-458611-r5/locations/us-central1/publishers/google/models/gemini-1.0-pro-vision-001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+    }
+}
