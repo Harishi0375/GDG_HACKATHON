@@ -1,0 +1,89 @@
+# .github/workflows/deploy.yml
+
+# Name of the workflow as shown in the GitHub Actions tab
+name: Deploy Vue App to GitHub Pages
+
+# Controls when the workflow will run
+on:
+  # Runs on pushes targeting the default branch (usually 'master' or 'main')
+  push:
+    branches: ["master"] # Change to "main" if that's your default branch
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+# Define the jobs that will run
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+
+    # Specify the working directory relative to the repository root
+    defaults:
+      run:
+        working-directory: ./frontend # Run npm commands inside the frontend directory
+
+    steps:
+      # Check out the repository code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Node.js environment
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Use a recent LTS version of Node.js
+          cache: 'npm' # Enable caching for npm dependencies
+          cache-dependency-path: frontend/package-lock.json # Cache based on lock file in frontend
+
+      # Install dependencies
+      - name: Install Dependencies
+        run: npm ci # Use 'ci' for cleaner installs in CI/CD
+
+      # Build the Vue application
+      - name: Build
+        run: npm run build # This uses the 'build' script from frontend/package.json
+
+      # Prepare the artifact for deployment
+      # This uploads the contents of the build output directory (frontend/dist)
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the 'dist' directory from the 'frontend' folder
+          path: './frontend/dist'
+
+  # Deployment job
+  deploy:
+    # Add a dependency to the build job
+    needs: build
+
+    # Grant GITHUB_TOKEN the permissions required to deploy to GitHub Pages
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Get the deployment URL output
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 # Official GitHub action for deployment

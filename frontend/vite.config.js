@@ -3,11 +3,12 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import path from 'path' // Import the path module
+// Remove 'path' import if no longer needed
+// import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Keep the base path for correct asset loading on GitHub Pages
+  // Keep the base path!
   base: '/GDG_HACKATHON/',
 
   plugins: [
@@ -19,10 +20,10 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  // Remove or comment out the entire 'build' section if 'dist' inside 'frontend' is the default,
+  // OR explicitly set it:
   build: {
-    // Output the build to a 'docs' folder in the repository root
-    // path.resolve goes from the current file (__dirname) up two levels (to GDG_HACKATHON root) and then into 'docs'
-    outDir: path.resolve(__dirname, '../../docs'),
-    emptyOutDir: true, // Recommended: Clears the docs folder before each build
+     outDir: 'dist', // Build inside frontend/dist
+     emptyOutDir: true,
   }
 })

@@ -176,3 +176,4 @@ cython_debug/
 # other files and folder of mine
 inputs/
 general_pdfs/
+/frontend/dist/
