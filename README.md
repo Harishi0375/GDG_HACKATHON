@@ -2,7 +2,7 @@
 
 **Event:** GDG on Campus Constructor University Bremen - Build with AI Hackathon (May 2-5, 2025)
 **Team Member:** Harishi
-**Document Version:** 2.1
+**Document Version:** 2.3
 **Last Updated:** May 3, 2025
 
 ---
@@ -23,12 +23,12 @@
     * [3.1. Core Logic & Environment](#31-core-logic--environment)
     * [3.2. AI Platform & Services](#32-ai-platform--services)
     * [3.3. Base Model Selection Process](#33-base-model-selection-process)
-    * [3.4. Fine-tuning Strategy (Planned)](#34-fine-tuning-strategy-planned)
+    * [3.4. Fine-tuning Strategy (Planned & In Progress)](#34-fine-tuning-strategy-planned--in-progress)
     * [3.5. Key Libraries](#35-key-libraries)
 4.  [Development Status & Roadmap](#4-development-status--roadmap)
     * [4.1. Current Status](#41-current-status)
     * [4.2. Next Steps / Roadmap](#42-next-steps--roadmap)
-    * [4.3. Development Challenges & Troubleshooting](#43-development-challenges--troubleshooting)
+    * [4.3. Development Challenges & Troubleshooting Summary](#43-development-challenges--troubleshooting-summary)
 5.  [How to Run Locally (Inference)](#5-how-to-run-locally-inference)
     * [5.1. Prerequisites](#51-prerequisites)
     * [5.2. Setup](#52-setup)
@@ -37,6 +37,10 @@
 6.  [Project Structure Overview](#6-project-structure-overview)
 7.  [Contributing](#7-contributing)
 8.  [Resources](#8-resources)
+9.  [Troubleshooting Journey & Learnings (Detailed)](#9-troubleshooting-journey--learnings-detailed)
+    * [9.1. Challenge: Regional Model Availability & Performance](#91-challenge-regional-model-availability--performance)
+    * [9.2. Challenge: Launching Fine-tuning via Python SDK](#92-challenge-launching-fine-tuning-via-python-sdk)
+    * [9.3. Challenge: Dataset Format for Fine-tuning](#93-challenge-dataset-format-for-fine-tuning)
 
 ---
 
@@ -128,8 +132,8 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
 
 * **Motivation:** While the base `gemini-2.0-flash-lite-001` model provides a strong starting point with prompt engineering, fine-tuning is essential to significantly enhance its performance on the specific hackathon task, particularly improving the accuracy and reliability of **descriptive localization** and overall **batch processing efficiency** for typical EdTech documents.
 * **Methodology:** Employing **Parameter-Efficient Fine-Tuning (PEFT)** using **LoRA (Low-Rank Adaptation)** via the Vertex AI managed tuning service. This allows adapting the large model efficiently using a smaller dataset and fewer computational resources. A LoRA rank of `4` was chosen as a starting point.
-* **Dataset:** A custom dataset was prepared in JSONL format, containing examples mapping input document GCS URIs (`gs://harishi-gdg-tuning-data/...`) to the desired structured Markdown output, including manually verified or corrected descriptive localization strings. This dataset (`tuning_data.jsonl`) currently contains initial examples and resides in GCS.
-* **Current Status:** The fine-tuning job has been successfully launched via the **Vertex AI Studio UI** using the prepared dataset, targeting 100 training steps with LoRA rank 4. The job is currently running.
+* **Dataset:** A custom dataset was prepared in JSONL format, containing examples mapping input document GCS URIs (`gs://harishi-gdg-tuning-data/data/tuning_data.jsonl`) to the desired structured Markdown output, including manually verified or corrected descriptive localization strings. The correct format (`"contents": [{"role":"user",...}]`) was identified by referencing Google's example notebook `sft_gemini_summarization.ipynb` after initial attempts failed due to format detection errors.
+* **Current Status:** The fine-tuning job (`gdg-documind-flash-lite-tuned-console`) has been successfully launched via the **Vertex AI Studio UI** using the prepared dataset (after correcting the JSONL format), targeting 100 training steps with LoRA rank 4. The job is currently running.
 
 ### 3.5. Key Libraries
 
@@ -152,10 +156,10 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
     * Implementation of the core inference pipeline (`vllm_handler.py`, `utils.py`, `main.py`) using the base model.
     * Refined prompt engineering for structured output (Type, Summary, Key Info & Localization, Category).
     * Recursive handling of input file types (`.txt`, `.pdf`, images) from subdirectories.
-    * Initial dataset creation (`tuning_data.jsonl`) with examples uploaded to GCS.
-    * Successful launch of the **LoRA fine-tuning job** via Vertex AI Console UI.
+    * Initial dataset creation (`tuning_data.jsonl`) with examples formatted correctly and uploaded to GCS.
+    * Successful launch of the **LoRA fine-tuning job** via Vertex AI Console UI after troubleshooting dataset format issues.
 * **In Progress:**
-    * **Fine-tuning Job Execution:** Waiting for the Vertex AI fine-tuning job to complete.
+    * **Fine-tuning Job Execution:** Waiting for the Vertex AI fine-tuning job (`gdg-documind-flash-lite-tuned-console`) to complete.
 
 ### 4.2. Next Steps / Roadmap
 
@@ -166,9 +170,15 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
 5.  *(Optional/Stretch Goal):* Integrate parsing for `.docx` files.
 6.  **Finalize Documentation & Video:** Update README with final results/status and prepare the 3-minute presentation video.
 
-### 4.3. Development Challenges & Troubleshooting
+### 4.3. Development Challenges & Troubleshooting Summary
 
-*(This section details challenges encountered during development. See previous response for the detailed text or paste the version you created here.)*
+*(See Section 9 for detailed descriptions)*
+
+* **Regional Model Availability (Priority: 2 - Resolved)**
+* **Base Model Inference Errors (Priority: 2 - Mitigated)**
+* **Fine-tuning SDK/API Complexity (Priority: 1 - Bypassed using UI)**
+* **Dataset Formatting for Tuning (Priority: 1 - Resolved using examples)**
+* **Pipeline Template Discovery & Parameters (Priority: 3 - Bypassed using UI)**
 
 ---
 
@@ -186,7 +196,7 @@ This describes how to run the current project using the **currently configured m
 ### 5.2. Setup
 
 1.  **Clone:** `git clone https://github.com/Harishi0375/GDG_HACKATHON.git && cd GDG_HACKATHON`
-2.  **Environment:** `python -m venv venv && source venv/bin/activate` (or equivalent)
+2.  **Environment:** `python -m venv venv && source venv/bin/activate` (or equivalent for your OS)
 3.  **Install:** `pip install -r requirements.txt`
 4.  **Authenticate:** `gcloud auth application-default login`
 5.  **Configure `.env`:**
@@ -196,9 +206,9 @@ This describes how to run the current project using the **currently configured m
 
 ### 5.3. Execution
 
-1.  Place input documents (`.txt`, `.pdf`, `.png`, `.jpg`, `.jpeg`) into the `inputs/` directory or its subfolders (`pdf/`, `png/`, etc.).
+1.  Place input documents (`.txt`, `.pdf`, `.png`, `.jpg`, `.jpeg`) into the `inputs/` directory or its subfolders (`pdf/`, `png/`, etc.). *Note: The `inputs/` folder is gitignored.*
 2.  Run the main script: `python src/main.py`
-3.  Check console output and the generated `outputs/results.json` file.
+3.  Check console output and the generated `outputs/results.json` file. *Note: The `outputs/` folder is gitignored.*
 
 ### 5.4. Note on Fine-tuning
 
@@ -256,3 +266,35 @@ This project was developed solely by Harishi for the GDG Build with AI Hackathon
 * [Gemini API Documentation](https://ai.google.dev/docs)
 * [Paper: Scaling Down to Scale Up: A Guide to Parameter-Efficient Fine-Tuning](https://arxiv.org/abs/2303.15647) (Referenced in `google fine tuning.pdf`)
 * [GDG Hackathon Presentation Slides]
+* [Example Notebook: Supervised Fine Tuning with Gemini 2.0 Flash for Article Summarization](https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/tuning/sft_gemini_summarization.ipynb) (Used to determine correct dataset format)
+
+---
+
+## 9. Troubleshooting Journey & Learnings (Detailed)
+
+This section documents some of the key challenges faced during the hackathon development process and how they were addressed.
+
+### 9.1. Challenge: Regional Model Availability & Performance
+
+* **Problem:** Needed a fast, capable Gemini model available in a European region (specifically `europe-west4` preferred). Initial checks showed limited availability for newer models (Gemini 1.5/2.5 series). Base model performance (latency and occasional inference errors) was also a concern.
+* **Action:** Developed and executed a systematic test using `test_models.ipynb`. This script iterated through candidate models (`gemini-2.0-flash-001`, `gemini-2.0-flash-lite-001`, various 1.5/2.5 models) and regions (`us-central1`, `europe-west1`, `europe-west2`, `europe-west3`, `europe-west4`), sending a standard image analysis prompt and recording success/failure status and average response time. Added robust error handling to capture `NotFound` errors and other processing failures.
+* **Resolution:** The testing confirmed limited availability of preview models in EU regions. `gemini-2.0-flash-lite-001` was identified as the best available option in `europe-west4`, offering the lowest latency among tested available models (see graphs in Section 3.3). Prompt engineering and error handling in `vllm_handler.py` were used to mitigate occasional base model inference issues.
+* **Resource Used:** `test_models.ipynb` script within this repository.
+
+### 9.2. Challenge: Launching Fine-tuning via Python SDK
+
+* **Problem:** Attempting to programmatically launch the supervised LoRA fine-tuning job using the Vertex AI Python SDK (`google-cloud-aiplatform==1.91.0`) encountered multiple `AttributeError`s. The SDK structure appears to have evolved, making documentation examples or previous patterns obsolete for this specific task (Gemini PEFT/LoRA tuning).
+* **Attempts:**
+    1.  `vertexai.preview.tuning.SupervisedTuningJob.run()`: Failed (`AttributeError: module 'vertexai.preview.tuning' has no attribute 'SupervisedTuningJob'`).
+    2.  `vertexai.preview.tuning.supervised_tune()`: Failed (`AttributeError: module 'vertexai.preview.tuning' has no attribute 'supervised_tune'`).
+    3.  `GenerativeModel(...).tune_model(...)`: Failed (`AttributeError: module 'vertexai.preview.tuning.sft' has no attribute 'AdapterTuningSpec'`) indicating issues finding the correct classes for defining PEFT parameters (`AdapterTuningSpec`, `LoraConfig`).
+    4.  `aiplatform.PipelineJob(...)`: Attempted using a guessed pipeline template URI and direct parameters, but failure likely without the correct template definition and parameter names.
+* **Resolution:** Due to time constraints and SDK complexity/documentation ambiguity for this specific workflow, the decision was made to **bypass the SDK for job submission** and use the graphical interface instead. The `run_finetuning.py` script is kept for reference of the attempted methods.
+* **Resources Used:** Official Vertex AI SDK documentation (searched), Google Search, trial-and-error with `run_finetuning.py`.
+
+### 9.3. Challenge: Dataset Format for Fine-tuning
+
+* **Problem:** The initial attempt to launch the fine-tuning job via the **Vertex AI Studio UI** failed with a "Failed to detect the dataset format" error. This indicated that the initial JSONL structure (`{"input_content_uri": "...", "output_text": "..."}`) was incorrect.
+* **Action:** Needed to identify the exact JSONL schema expected by the Vertex AI tuning service for multimodal Gemini models.
+* **Resolution:** Examined the structure used in Google's official example notebooks for Gemini supervised fine-tuning. The notebook `sft_gemini_summarization.ipynb` showed the correct format uses a `"contents"` array with `"role": "user"` and `"role": "model"` objects, where the input file is specified under `user -> parts -> fileData` (with `mime_type` and `file_uri`) and the target output under `model -> parts -> text`. The local `tuning_data.jsonl` file was reformatted accordingly.
+* **Resource Used:** [Example Notebook: Supervised Fine Tuning with Gemini 2.0 Flash for Article Summarization](https://github.com/GoogleCloudPlatform/generative-ai/blob/main/gemini/tuning/sft_gemini_summarization.ipynb) (referenced via file upload).
