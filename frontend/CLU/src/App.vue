@@ -1,47 +1,46 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+// Only import RouterView from vue-router
+import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
-
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-    </div>
-  </header>
-
   <main>
-    <TheWelcome />
+    <RouterView />
   </main>
 </template>
 
 <style scoped>
+/* Apply centering styles directly to the main element */
+main {
+  display: flex;            /* Enable Flexbox */
+  justify-content: center;  /* Center content horizontally */
+  align-items: center;      /* Center content vertically */
+  min-height: 100vh;        /* Ensure main takes at least full viewport height for vertical centering */
+  width: 100%;              /* Ensure main takes full width */
+  box-sizing: border-box;   /* Include padding/border in height/width calculation */
+  padding: 1rem;            /* Keep your desired padding around the centered content */
+}
+
+/* Styles for header and .logo below are not needed */
+/* unless you add a <header> or element with class="logo" back into the template */
+/*
 header {
   line-height: 1.5;
 }
 
 .logo {
-  display: block;
-  margin: 0 auto 2rem;
+ display: none;
 }
+*/
 
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
+/* Add any other global layout styles for App.vue here if needed */
+</style>
 
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
+<style>
+/* Optional: Global styles (not scoped) if needed for body reset etc. */
+/* It's good practice to have minimal body margin */
+body {
+  margin: 0;
+  font-family: sans-serif; /* Example base font */
 }
 </style>
