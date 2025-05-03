@@ -44,68 +44,68 @@ import { RouterLink } from 'vue-router'
 </template>
 
 <style scoped>
-/* --- Theme Variables (Light Theme) --- */
+/* --- Dark Theme Variables --- */
+/* Define colors suitable for a dark background */
 :root {
-  --bg-color: #f8f9fa; /* Light grey background */
-  --content-bg-color: #ffffff; /* White content area */
-  --description-bg-color: #ffffff; /* White card background (can be same as content) */
-  --text-color: #212529; /* Dark primary text */
-  --text-secondary-color: #6c757d; /* Medium grey secondary text */
-  --primary-color: #007bff; /* Standard blue accent */
-  --border-color: #dee2e6; /* Light grey border */
-  --shadow-color: rgba(0, 0, 0, 0.1); /* Lighter shadow */
-  --button-initial-bg: #343a40; /* Dark initial button background */
-  --button-text-initial: #ffffff; /* Light initial button text */
-  --button-text-hover: #ffffff; /* Light hover button text */
-  --button-bg-hover: var(--primary-color); /* Blue hover background */
-  --button-shadow-hover: rgba(0, 123, 255, 0.3); /* Blue glow */
+  --bg-dark: #1a1a1a; /* Very dark background */
+  --content-bg-dark: #242424; /* Slightly lighter content area */
+  --text-bright: #e4e4e4; /* Bright primary text */
+  --text-muted: #a0a0a0; /* Muted secondary text */
+  --primary-accent: #42d392; /* Vue green */
+  --primary-accent-hover: #34a853;
+  --border-dark: #444;
+  --shadow-dark: rgba(0, 0, 0, 0.4);
+  --button-initial-bg-dark: #3f3f3f;
+  --button-text-initial-dark: #e4e4e4;
+  --button-text-hover-dark: #1a1a1a; /* Dark text on hover */
+  --button-bg-hover-dark: var(--primary-accent);
+  --button-shadow-hover-dark: rgba(66, 211, 146, 0.4);
 }
 
 /* --- Base Layout --- */
 .landing-page {
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* Vertical centering */
-  align-items: center; /* Horizontal centering */
-  min-height: 100vh; /* Ensure it takes full viewport height */
+  /* Centering is handled by App.vue's <main> tag */
   width: 100%;
-  padding: 40px 20px; /* Adjusted padding */
+  padding: 20px;
   box-sizing: border-box;
-  background-color: var(--bg-color);
-  color: var(--text-color); /* Base text color for the page */
+  color: var(--text-bright); /* Use bright text */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  /* Background is likely set globally or by App.vue based on theme */
 }
 
 /* --- Content Wrapper --- */
 .content-container {
   max-width: 800px;
   width: 100%;
-  text-align: center;
   display: flex;
   flex-direction: column;
   gap: 30px;
-  background-color: var(--content-bg-color);
+  background-color: var(--content-bg-dark); /* Dark content background */
   padding: 40px 50px;
-  border-radius: 12px; /* Slightly adjusted radius */
-  box-shadow: 0 4px 15px var(--shadow-color);
-  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px var(--shadow-dark);
+  border: 1px solid var(--border-dark);
+  margin: 0 auto; /* Center the container block horizontally */
+  text-align: center; /* Default text alignment */
 }
 
 /* --- Header --- */
+.landing-header {
+  text-align: center;
+}
 .landing-header h1 {
-  color: var(--text-color); /* Use main dark text color */
+  color: var(--text-bright); /* Bright heading */
   margin-top: 0;
   margin-bottom: 10px;
-  font-size: 2.8em; /* Slightly adjusted size */
+  font-size: 2.8em;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
-
 .landing-header .tagline {
-  font-size: 1.3em; /* Slightly adjusted size */
-  color: var(--text-secondary-color); /* Use secondary grey */
+  font-size: 1.3em;
+  color: var(--text-muted); /* Muted text */
   margin-bottom: 0;
-  font-weight: 400; /* Adjusted weight */
+  font-weight: 400;
 }
 
 /* --- Description Section --- */
@@ -114,68 +114,62 @@ import { RouterLink } from 'vue-router'
 }
 
 .description-card {
-  padding: 0; /* Keep padding within content-container */
-  text-align: left; /* Keep text left-aligned here */
-  background-color: var(--description-bg-color); /* Explicitly set */
+  padding: 0;
+  text-align: left;
+  background-color: var(--content-bg-dark); /* Match container background */
 }
-
 .description-card h2 {
-  color: var(--primary-color); /* Use accent color for headings */
+  color: var(--primary-accent); /* Accent color for headings */
   margin-top: 0;
-  margin-bottom: 15px; /* Adjusted margin */
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-dark);
   padding-bottom: 10px;
-  font-size: 1.6em; /* Adjusted size */
+  font-size: 1.6em;
   font-weight: 600;
 }
-
 .divider {
-    border: none;
-    height: 1px;
-    background-color: var(--border-color);
-    margin: 30px 0;
+  border: none;
+  height: 1px;
+  background-color: var(--border-dark);
+  margin: 30px 0;
 }
-
 .description-card ul {
-    list-style-position: outside;
-    padding-left: 25px;
-    color: var(--text-secondary-color); /* Use secondary grey */
-    margin-top: 15px; /* Adjusted margin */
+  list-style-position: outside;
+  padding-left: 25px;
+  color: var(--text-muted);
+  margin-top: 15px;
 }
 .description-card ul li strong {
-    color: var(--text-color); /* Use main dark text */
+  color: var(--text-bright); /* Bright text for strong */
 }
-
 .description-card li {
-    margin-bottom: 12px; /* Adjusted margin */
-    line-height: 1.6;
+  margin-bottom: 12px;
+  line-height: 1.6;
 }
-
 .description-card p {
-    text-align: left;
-    line-height: 1.6;
-    color: var(--text-secondary-color); /* Use secondary grey */
-    margin-top: 15px; /* Adjusted margin */
-    margin-bottom: 0;
+  text-align: left;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-top: 15px;
+  margin-bottom: 0;
 }
 .description-card p:first-of-type {
-    margin-top: 0; /* Remove top margin for first paragraph after h2 */
+  margin-top: 0;
 }
-
 .description-card p em {
-    color: var(--primary-color); /* Keep accent for emphasis */
-    font-style: normal;
-    font-weight: 600;
+  color: var(--primary-accent);
+  font-style: normal;
+  font-weight: 600;
 }
 
 /* --- Footer / Button Area --- */
 .landing-footer {
-    margin-top: 20px; /* Adjusted margin */
-    width: 100%;
-    text-align: center; /* Ensure button is centered if needed */
+  margin-top: 20px;
+  width: 100%;
+  text-align: center;
 }
 
-/* --- Fancy Button Styles (Adapted for Light Theme) --- */
+/* --- Fancy Button Styles (Adapted for Dark Theme) --- */
 .fancy-button {
   display: inline-block;
   border: none;
@@ -184,44 +178,38 @@ import { RouterLink } from 'vue-router'
   height: 73px;
   padding: 0;
   z-index: 2;
-  /* Mask shape - DO NOT REMOVE THE DATA URI */
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='868' width='2500' viewBox='0 0 726 252.17'%3E%3Cpath d='M483.92 0S481.38 24.71 466 40.11c-11.74 11.74-24.09 12.66-40.26 15.07-9.42 1.41-29.7 3.77-34.81-.79-2.37-2.11-3-21-3.22-27.62-.21-6.92-1.36-16.52-2.82-18-.75 3.06-2.49 11.53-3.09 13.61S378.49 34.3 378 36a85.13 85.13 0 0 0-30.09 0c-.46-1.67-3.17-11.48-3.77-13.56s-2.34-10.55-3.09-13.61c-1.45 1.45-2.61 11.05-2.82 18-.21 6.67-.84 25.51-3.22 27.62-5.11 4.56-25.38 2.2-34.8.79-16.16-2.47-28.51-3.39-40.21-15.13C244.57 24.71 242 0 242 0H0s69.52 22.74 97.52 68.59c16.56 27.11 14.14 58.49 9.92 74.73C170 140 221.46 140 273 158.57c69.23 24.93 83.2 76.19 90 93.6 6.77-17.41 20.75-68.67 90-93.6 51.54-18.56 103-18.59 165.56-15.25-4.21-16.24-6.63-47.62 9.93-74.73C656.43 22.74 726 0 726 0z'/%3E%3C/svg%3E") no-repeat center center;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='868' width='2500' viewBox='0 0 726 252.17'%3E%3Cpath d='M483.92 0S481.38 24.71 466 40.11c-11.74 11.74-24.09 12.66-40.26 15.07-9.42 1.41-29.7 3.77-34.81-.79-2.37-2.11-3-21-3.22-27.62-.21-6.92-1.36-16.52-2.82-18-.75 3.06-2.49 11.53-3.09 13.61S378.49 34.3 378 36a85.13 85.13 0 0 0-30.09 0c-.46-1.67-3.17-11.48-3.77-13.56s-2.34-10.55-3.09-13.61c-1.45 1.45-2.61 11.05-2.82 18-.21 6.67-.84 25.51-3.22 27.62-5.11 4.56-25.38 2.2-34.8.79-16.16-2.47-28.51-3.39-40.21-15.13C244.57 24.71 242 0 242 0H0s69.52 22.74 97.52 68.59c16.56 27.11 14.14 58.49 9.92 74.73C170 140 221.46 140 273 158.57c69.23 24.93 83.2 76.19 90 93.6 6.77-17.41 20.75-68.67 90-93.6 51.54-18.56 103-18.59 165.56-15.25-4.21-16.24-6.63-47.62 9.93-74.73C656.43 22.74 726 0 726 0z'/%3E%3C/svg%3E") no-repeat center center;
   -webkit-mask-size: contain;
   mask-size: contain;
   cursor: pointer;
-  background-color: var(--button-initial-bg); /* Initial background (dark) */
+  background-color: var(--button-initial-bg-dark); /* Use dark theme variable */
   transform: translateY(0px);
-  transition: transform 0.2s ease, background-color 0.6s ease; /* Slightly faster bg transition */
+  transition: transform 0.2s ease, background-color 0.6s ease;
 }
 .fancy-button:hover {
     transform: translateY(-3px);
-    background-color: var(--button-bg-hover); /* Background on hover (blue) */
+    background-color: var(--button-bg-hover-dark); /* Use dark theme variable */
 }
 .fancy-button:active {
     transform: translateY(0px);
 }
-
-/* Glow effect using ::after */
 .fancy-button::after {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  box-shadow: 0px 0px 0px 0px var(--button-shadow-hover);
+  box-shadow: 0px 0px 0px 0px var(--button-shadow-hover-dark); /* Use dark theme variable */
   opacity: 0;
-  transition: box-shadow 0.6s ease-out, opacity 0.6s ease-out; /* Match bg transition */
+  transition: box-shadow 0.6s ease-out, opacity 0.6s ease-out;
   z-index: 1;
   pointer-events: none;
-   -webkit-mask: inherit; /* Inherit mask for glow */
+   -webkit-mask: inherit;
    mask: inherit;
 }
-
 .fancy-button:hover::after {
   opacity: 1;
-  box-shadow: 0px 0px 35px 10px var(--button-shadow-hover); /* Adjusted glow size */
+  box-shadow: 0px 0px 35px 10px var(--button-shadow-hover-dark); /* Use dark theme variable */
 }
-
-/* Text Styling */
 .fancy-button span {
   position: absolute;
   width: 100%;
@@ -232,14 +220,12 @@ import { RouterLink } from 'vue-router'
   letter-spacing: 3px;
   text-align: center;
   transform: translate(-50%, -50%);
-  color: var(--button-text-initial); /* Initial text color (light) */
-  transition: color 0.6s ease-out; /* Match bg transition */
-  z-index: 3; /* Text on top */
+  color: var(--button-text-initial-dark); /* Use dark theme variable */
+  transition: color 0.6s ease-out;
+  z-index: 3;
 }
-
 .fancy-button:hover span {
-  color: var(--button-text-hover); /* Hover text color (light) */
+  color: var(--button-text-hover-dark); /* Use dark theme variable */
 }
 /* End Fancy Button Styles */
-
 </style>
