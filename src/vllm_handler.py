@@ -53,15 +53,16 @@ def initialize_vertex_ai():
         return False # Indicate failure
 
 # --- Define the function to analyze content ---
-
-def analyze_content(file_path: str) -> str:
+# --- MODIFIED FUNCTION SIGNATURE ---
+def analyze_content(file_path: str, model_id_override: str = None) -> str:
     """
-    Analyzes the content of an image, text, or PDF file using the specified Vertex AI Gemini model.
-    For PDFs, it renders each page as an image.
-    Uses the fine-tuned model endpoint if available and configured.
+    Analyzes content using a specified Vertex AI Gemini model.
+    Uses the fine-tuned model by default unless overridden.
 
     Args:
         file_path: The absolute path to the input file (image, text, or PDF).
+        model_id_override (str, optional): Specific model ID to use (e.g., base model ID).
+                                            If None, uses the default fine-tuned model.
 
     Returns:
         A string containing the combined analysis results from the Gemini model,
@@ -99,8 +100,12 @@ def analyze_content(file_path: str) -> str:
 
         if mime_type.startswith("image/"):
             try:
+                # Use context manager for file opening
                 with Image.open(file_path) as img:
-                    img.verify()
+                     # It's good practice to load the image data to ensure it's valid before verify
+                     img.load()
+                     img.verify() # Verify image integrity
+                # Create Part after verification
                 image_part = Part.from_image(VertexImage.load_from_file(file_path))
                 request_contents_list.append(image_part)
                 logging.info(f"Prepared image part for {os.path.basename(file_path)}")
@@ -127,6 +132,7 @@ def analyze_content(file_path: str) -> str:
         elif mime_type == "application/pdf":
             if not utils.fitz:
                  return "Error: PDF processing requires PyMuPDF. Please install it (`pip install PyMuPDF`)."
+            doc = None # Initialize doc
             try:
                 MAX_PDF_PAGES_TO_SEND = 5
                 doc = utils.fitz.open(file_path)
@@ -141,18 +147,24 @@ def analyze_content(file_path: str) -> str:
                         logging.info(f"Prepared image part for PDF page {page_num} of {os.path.basename(file_path)}")
                     else:
                         logging.warning(f"Could not render page {page_num} of PDF {file_path}.")
-                doc.close()
+                doc.close() # Close inside try block after loop
                 if not request_contents_list:
                     return f"Error: Could not render any pages from PDF {os.path.basename(file_path)}."
 
             except Exception as pdf_err:
                  logging.error(f"Failed to process PDF file {file_path}: {pdf_err}", exc_info=True)
-                 if 'doc' in locals() and doc and not doc.is_closed:
+                 if doc and not doc.is_closed: # Check if doc was opened and not closed
                      try: doc.close()
                      except Exception: pass
                  return f"Error: Could not process PDF file {os.path.basename(file_path)}."
+            # Ensure doc is closed if loop finishes but error occurs later (though unlikely here)
+            finally:
+                if doc and not doc.is_closed:
+                     try: doc.close()
+                     except Exception: pass
 
-        else:
+
+        else: # Should not be reached if MIME type logic is correct
             logging.error(f"Unsupported file type slipped through: {mime_type} for file {os.path.basename(file_path)}")
             return f"Error: Unsupported file type '{mime_type}'."
 
@@ -160,30 +172,57 @@ def analyze_content(file_path: str) -> str:
              logging.error(f"No content parts could be prepared for file: {file_path}")
              return f"Info: No processable content found in file {os.path.basename(file_path)}."
 
-        # --- Prepare and send request to Gemini ---
+        # --- MODIFIED MODEL SELECTION LOGIC ---
+        model = None
+        model_name_to_use = None
+        tuned_model_name = "projects/248124319532/locations/europe-west4/models/8219698240602243072" # Your tuned ID
+        base_model_name = "gemini-2.0-flash-lite-001" # Define base model ID here too
 
-        # *** MODIFICATION START: Use the Fine-Tuned Model ID ***
-        # Comment out the base model loading
-        # model_name_to_use = "gemini-2.0-flash-lite-001"
-        # model = GenerativeModel(model_name_to_use)
+        if model_id_override:
+            model_name_to_use = model_id_override
+            logging.info(f"Using OVERRIDDEN model: {model_name_to_use}")
+            # Check if it looks like a tuned model ID (contains 'projects/')
+            if "projects/" in model_name_to_use:
+                 try:
+                     # Use the specific class for clarity
+                     model = vertexai.generative_models.GenerativeModel.from_pretrained(model_name_to_use)
+                     logging.info(f"Successfully loaded OVERRIDDEN (tuned) model: {model_name_to_use}")
+                 except Exception as load_err:
+                     logging.error(f"Failed to load overridden tuned model '{model_name_to_use}': {load_err}", exc_info=True)
+                     # Check specifically for the AttributeError again
+                     if isinstance(load_err, AttributeError) and 'from_pretrained' in str(load_err):
+                         logging.critical("AttributeError 'from_pretrained' encountered loading OVERRIDDEN model. Check SDK version/environment.")
+                     return f"Error: Could not load fine-tuned model '{model_name_to_use}'"
+            else: # Assume it's a base model ID
+                try:
+                    # Use the specific class for clarity
+                    model = vertexai.generative_models.GenerativeModel(model_name_to_use)
+                    logging.info(f"Successfully loaded OVERRIDDEN (base) model: {model_name_to_use}")
+                except Exception as load_err:
+                    logging.error(f"Failed to load overridden base model '{model_name_to_use}': {load_err}", exc_info=True)
+                    return f"Error: Could not load base model '{model_name_to_use}'"
 
-        # Define the identifier for your successfully tuned model
-        tuned_model_name = "projects/248124319532/locations/europe-west4/models/8219698240602243072"
+        else: # Default to the fine-tuned model if no override
+            model_name_to_use = tuned_model_name
+            logging.info(f"Using DEFAULT (tuned) model: {model_name_to_use}")
+            try:
+                # Use the specific class for clarity
+                model = vertexai.generative_models.GenerativeModel.from_pretrained(model_name_to_use)
+                logging.info(f"Successfully loaded DEFAULT (tuned) model: {model_name_to_use}")
+            except Exception as load_err:
+                logging.error(f"Failed to load default tuned model '{model_name_to_use}': {load_err}", exc_info=True)
+                # Check specifically for the AttributeError again
+                if isinstance(load_err, AttributeError) and 'from_pretrained' in str(load_err):
+                     logging.critical("AttributeError 'from_pretrained' encountered loading DEFAULT model. Check SDK version/environment.")
+                return f"Error: Could not load fine-tuned model '{model_name_to_use}'"
+        # --- END MODIFIED MODEL SELECTION ---
 
-        logging.info(f"Using TUNED model: {tuned_model_name}")
-        # Load the fine-tuned model using from_pretrained
-        try:
-            model = GenerativeModel.from_pretrained(tuned_model_name)
-            # Optional: Log the actual loaded model name if available
-            # if hasattr(model, '_model_name'):
-            #    logging.info(f"Successfully loaded tuned model reference: {model._model_name}")
-            # else:
-            #    logging.info("Successfully obtained tuned model reference.")
-        except Exception as load_err:
-            logging.error(f"Failed to load tuned model '{tuned_model_name}': {load_err}", exc_info=True)
-            return f"Error: Could not load fine-tuned model '{tuned_model_name}'"
-        # *** MODIFICATION END ***
+        if not model:
+             # This should only happen if an error occurred above and returned early
+             logging.error("Model object could not be instantiated.")
+             return "Error: Model object could not be instantiated (check previous errors)."
 
+        # --- Define the prompt ---
         prompt = """
         Your task is to act as an expert document analyst. Analyze the provided document content meticulously. Even if the content is very short, analyze the content itself.
 
@@ -211,6 +250,7 @@ def analyze_content(file_path: str) -> str:
 
         request_contents = request_contents_list + [Part.from_text(prompt)]
 
+        # --- Define safety and generation config ---
         safety_settings = {
             generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
             generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -225,7 +265,9 @@ def analyze_content(file_path: str) -> str:
             "top_k": 40,
         }
 
-        logging.info(f"Sending request to Vertex AI Gemini model ({tuned_model_name}) for file: {os.path.basename(file_path)}...")
+        # Use the determined model_name_to_use for logging
+        logging.info(f"Sending request to Vertex AI Gemini model ({model_name_to_use}) for file: {os.path.basename(file_path)}...")
+        # Use the instantiated 'model' object for the call
         responses = model.generate_content(
             request_contents,
             generation_config=generation_config,
@@ -235,27 +277,34 @@ def analyze_content(file_path: str) -> str:
 
         logging.info(f"Received response from model for file: {os.path.basename(file_path)}.")
 
-        analysis_result = "Error: Failed to process model response."
+        # --- Process the response ---
+        analysis_result = "Error: Failed to process model response." # Default error
         try:
+            # Check for blocked responses or empty candidates first
             if not responses.candidates:
                  feedback_reason = responses.prompt_feedback.block_reason if hasattr(responses, 'prompt_feedback') and responses.prompt_feedback else "UNKNOWN"
                  logging.error(f"Analysis failed for {os.path.basename(file_path)}. No candidates returned. Reason: {feedback_reason}. Response: {responses}")
                  analysis_result = f"Error: Analysis failed. No candidates returned. Reason: {feedback_reason}"
+            # Check finish reason
             elif responses.candidates[0].finish_reason != FinishReason.STOP:
                 finish_reason_name = FinishReason(responses.candidates[0].finish_reason).name
                 logging.error(f"Analysis stopped for {os.path.basename(file_path)} due to finish reason: {finish_reason_name}")
                 analysis_result = f"Error: Analysis stopped due to {finish_reason_name}. Check safety settings or input content."
+            # Check for empty content parts
             elif not responses.candidates[0].content.parts:
                  logging.error(f"Model response for {os.path.basename(file_path)} had no content parts (FinishReason=STOP). Response: {responses}")
                  analysis_result = "Error: Model response was empty (no parts)."
+            # Try to get text if everything looks okay
             else:
                  try:
                      analysis_result = responses.text
-                 except ValueError as e:
+                 except ValueError as e: # Handle cases where .text might fail
                      logging.warning(f"Could not directly access text from response for {os.path.basename(file_path)}. Error: {e}. Full Parts: {responses.candidates[0].content.parts}")
+                     # Fallback to joining text parts if available
                      analysis_result = " ".join(part.text for part in responses.candidates[0].content.parts if hasattr(part, 'text'))
-                     if not analysis_result:
-                         analysis_result = "Error: Could not parse text from model response parts."
+                     if not analysis_result.strip(): # Check if joined text is also empty
+                         analysis_result = "Error: Could not parse text from model response parts (empty after join)."
+                     # If still no text, keep the error message
 
         except Exception as e_resp:
              logging.error(f"Unexpected error processing model response for {os.path.basename(file_path)}: {e_resp}", exc_info=True)
@@ -264,44 +313,14 @@ def analyze_content(file_path: str) -> str:
         logging.info(f"Analysis complete for file: {os.path.basename(file_path)}.")
         return analysis_result
 
-    except FileNotFoundError:
+    # --- Outer error handling ---
+    except FileNotFoundError: # Catch specific errors if possible
         logging.error(f"File not found during processing: {file_path}")
         return "Error: File not found during processing."
     except ImportError:
         logging.error("Error: Required libraries (google-cloud-aiplatform, Pillow, PyMuPDF) not found. Please install requirements.")
         return "Error: Required libraries not installed."
-    except Exception as e:
-        logging.error(f"An error occurred during analysis for {os.path.basename(file_path)}: {e}", exc_info=True)
+    except Exception as e: # General catch-all
+        logging.error(f"An unexpected error occurred during analysis for {os.path.basename(file_path)}: {e}", exc_info=True)
         return f"Error: An unexpected error occurred during analysis for {os.path.basename(file_path)}: {e}"
 
-# --- Example Usage (for testing this script directly) ---
-if __name__ == '__main__':
-    # Run this specific script from the project root directory using:
-    # python -m src.vllm_handler
-
-    if not config.GCP_PROJECT_ID or not config.GCP_REGION:
-         print("Error: GCP_PROJECT_ID or GCP_REGION not set in .env file or environment.")
-    else:
-        # Define the specific file to test
-        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        # --- !! CHANGE THIS PATH TO TEST DIFFERENT FILES !! ---
-        # Example: Test the PDF used in tuning
-        test_file_to_use = os.path.join(project_root, "inputs", "pdf", "ML - assignment 4.pdf")
-        # Example: Test the JPG used in tuning
-        # test_file_to_use = os.path.join(project_root, "inputs", "jpg", "test.jpg")
-        # Example: Test the PNG chart used in tuning
-        # test_file_to_use = os.path.join(project_root, "inputs", "png", "output.png")
-        # ----------------------------------------------------
-        test_file_to_use = os.path.abspath(test_file_to_use)
-
-        print(f"Attempting to test analysis using the TUNED model for: {test_file_to_use}")
-
-        if os.path.exists(test_file_to_use):
-            print(f"--- Testing analysis for: {os.path.basename(test_file_to_use)} ---")
-            result = analyze_content(test_file_to_use) # This now uses the tuned model ID
-            print("\n--- Analysis Result ---")
-            print(result)
-            print("-----------------------")
-        else:
-            print(f"Test file not found: '{test_file_to_use}'")
-            print(f"Please ensure the file exists at that location relative to the project structure.")
