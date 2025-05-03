@@ -79,7 +79,7 @@ const isDragging = ref(false); // Flag for drag-over state
 
 // --- API Endpoint ---
 // *** IMPORTANT: Replace with your actual backend API URL ***
-const apiUrl = 'http://127.0.0.1:5000/api/analyze'; // Example local Flask URL
+const apiUrl = 'https://clu-backend-service-248124319532.europe-west4.run.app/api/analyze'; // Example local Flask URL
 
 // --- File Handling ---
 
