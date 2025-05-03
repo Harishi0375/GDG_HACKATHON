@@ -1,6 +1,0 @@
-file,base_model_output,base_model_time_sec,tuned_model_output,tuned_model_time_sec
-inputs/jpeg/1.jpeg,Error: Could not load or invalid image file 1.jpeg.,,Error: Could not load or invalid image file 1.jpeg.,
-inputs/jpeg/2.jpeg,Error: Could not load or invalid image file 2.jpeg.,,Error: Could not load or invalid image file 2.jpeg.,
-inputs/jpeg/3.jpeg,Error: Could not load or invalid image file 3.jpeg.,,Error: Could not load or invalid image file 3.jpeg.,
-inputs/jpeg/4.jpeg,Error: Could not load or invalid image file 4.jpeg.,,Error: Could not load or invalid image file 4.jpeg.,
-inputs/jpeg/5.jpeg,Error: Could not load or invalid image file 5.jpeg.,,Error: Could not load or invalid image file 5.jpeg.,
