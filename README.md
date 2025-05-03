@@ -2,8 +2,8 @@
 
 **Event:** GDG on Campus Constructor University Bremen - Build with AI Hackathon (May 2-5, 2025)
 **Team Member:** Harishi
-**Document Version:** 2.0
-**Last Updated:** May 2, 2025
+**Document Version:** 2.1
+**Last Updated:** May 3, 2025
 
 ---
 
@@ -22,12 +22,13 @@
 3.  [Architecture and Technology Stack](#3-architecture-and-technology-stack)
     * [3.1. Core Logic & Environment](#31-core-logic--environment)
     * [3.2. AI Platform & Services](#32-ai-platform--services)
-    * [3.3. Base Model Selection](#33-base-model-selection)
+    * [3.3. Base Model Selection Process](#33-base-model-selection-process)
     * [3.4. Fine-tuning Strategy (Planned)](#34-fine-tuning-strategy-planned)
     * [3.5. Key Libraries](#35-key-libraries)
 4.  [Development Status & Roadmap](#4-development-status--roadmap)
     * [4.1. Current Status](#41-current-status)
     * [4.2. Next Steps / Roadmap](#42-next-steps--roadmap)
+    * [4.3. Development Challenges & Troubleshooting](#43-development-challenges--troubleshooting)
 5.  [How to Run Locally (Inference)](#5-how-to-run-locally-inference)
     * [5.1. Prerequisites](#51-prerequisites)
     * [5.2. Setup](#52-setup)
@@ -58,7 +59,7 @@ This tool is designed for users who need to efficiently retrieve and verify info
 
 ### 1.4. Hackathon Goal
 
-To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM solution. This involves using a base Gemini model and **planning its fine-tuning** to excel at the core challenge: **extracting information and providing its location** within various document types.
+To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM solution. This involves using a base Gemini model and **launching its fine-tuning** to excel at the core challenge: **extracting information and providing its location** within various document types.
 
 ---
 
@@ -66,14 +67,15 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
 
 ### 2.1. Supported Input
 
-* **Required Types (Implemented):** Process `.txt`, `.pdf`, `.png`, `.jpeg`, `.jpg` files located in the `inputs/` directory. Handles multi-page PDFs by sending initial pages as images.
-* **Unsupported Types (Blocked):** The system currently does not process audio, video, or other non-specified file types. File types like `.docx` or `.latex` require adding specific parsing libraries and are considered potential future enhancements.
+* **Core Implementation:** The current system processes `.txt`, `.pdf`, and image files (`.png`, `.jpeg`, `.jpg`) located within the `inputs/` directory and its subdirectories. It handles multi-page PDFs by rendering initial pages as images for analysis.
+* **Planned Expansion:** The goal is to extend support to include `.docx` (Microsoft Word) and `.latex` files to cover a broader range of common academic and document formats. *Note: Parsing logic for these types is not yet implemented.*
+* **Unsupported Types (Blocked):** The system actively ignores audio, video, and other non-document file types based on MIME type and extension checks.
 
 ### 2.2. Core Task: Extraction & Localization
 
-* **Base Model Inference:** Utilize the selected `gemini-2.0-flash-lite-001` model via the Vertex AI API for initial analysis.
+* **Base Model Inference:** Utilize the selected `gemini-2.0-flash-lite-001` model via the Vertex AI API for initial analysis. (Note: This will be switched to the fine-tuned model endpoint once training succeeds).
 * **Information Extraction:** Extract key information (summary, main points, data, definitions, etc.) based on a structured prompt.
-* **Localization Method:** Provide **descriptive localization** (e.g., "Page 3, top left", "Table Row 2, Column 1") as requested by the prompt and aligned with hackathon guidelines.
+* **Localization Method:** Provide **descriptive localization** (e.g., "Page 3, top left", "Table Row 2, Column 1", "First bar, left") as requested by the prompt and aligned with hackathon guidelines.
 
 ### 2.3. Output Format
 
@@ -91,35 +93,51 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
 ### 3.1. Core Logic & Environment
 
 * **Language:** Python (v3.10+)
-* **Environment:** Python Virtual Environment (`venv`) with packages listed in `requirements.txt`.
-* **Configuration:** `.env` file for GCP Project ID/Region; Google Cloud Application Default Credentials (ADC) for authentication.
+* **Environment:** Python Virtual Environment (`venv` or `conda`) with packages listed in `requirements.txt`.
+* **Configuration:** `.env` file for `GCP_PROJECT_ID` and `GCP_REGION`; Google Cloud Application Default Credentials (ADC) for authentication.
 
 ### 3.2. AI Platform & Services
 
 * **Platform:** Google Cloud Platform (GCP)
 * **Core Service:** Vertex AI used for:
-    * Model Inference (current)
-    * Model Testing (`test_models.ipynb`)
-    * **Planned Fine-tuning Jobs**
+    * Model Inference (current base model, switching to tuned model post-training)
+    * Model Selection Testing (`test_models.ipynb`)
+    * **Fine-tuning Job Execution** (Launched via Console UI)
 
-### 3.3. Base Model Selection
+### 3.3. Base Model Selection Process
 
-* **Selected Model:** `gemini-2.0-flash-lite-001`.
-* **Rationale:** Chosen based on systematic testing (`test_models.ipynb`) across various Gemini models and regions. `gemini-2.0-flash-lite-001` demonstrated the best combination of **availability and speed** in the target European region (`europe-west4`) during tests.
+* **Challenge:** Initial exploration revealed that desired regions (e.g., `europe-west1` to `europe-west4`) had limited availability for many newer Gemini models (1.5 series, 2.5 previews). Additionally, speed was a critical factor for a responsive EdTech tool.
+* **Methodology:** A systematic testing approach was employed using the `test_models.ipynb` notebook. This notebook iterated through a list of candidate models and target regions, performing basic image analysis tasks and measuring API call success rates and average processing times.
+* **Results:** The tests highlighted significant availability gaps in European regions for preview models. Among the available and stable models, `gemini-2.0-flash-lite-001` emerged as the leading candidate, demonstrating both availability and the lowest latency in the `europe-west4` region.
 
-### 3.4. Fine-tuning Strategy (Planned)
+    * _Summary Table Screenshot:_
+      <p align="center">
+        <img src="./graphs/table.png" alt="Model Test Summary Table" width="70%">
+      </p>
+      *(Note: Table shows results including 'Model Not Found' and 'Processing Errors' for unavailable/problematic combinations. Full details in `outputs/model_test_outputs.json`.)*
 
-* **Motivation:** While the base `gemini-2.0-flash-lite-001` model provides a strong starting point with prompt engineering, fine-tuning is planned to significantly enhance its performance on the specific hackathon task, particularly improving the accuracy and reliability of **descriptive localization** and overall **batch processing efficiency** for typical EdTech documents.
-* **Methodology:** Plan to employ **Parameter-Efficient Fine-Tuning (PEFT)** techniques available on Vertex AI. **LoRA (Low-Rank Adaptation)** is a primary candidate method, recognized for its efficiency in adapting large models.
-* **Dataset Requirement:** Successful fine-tuning necessitates creating a specialized dataset. This dataset will consist of representative documents (PDFs, images, text relevant to EdTech) paired with meticulously crafted target outputs in the desired JSON-like format, including accurate **descriptive localization strings** ("Page 3, top-left", etc.) for each extracted piece of information.
-* **Current Status:** Fine-tuning is in the **planning and dataset preparation phase**.
+    * _Performance Chart Screenshot:_
+      <p align="center">
+        <img src="./graphs/output.png" alt="Model Test Performance Chart" width="70%">
+      </p>
+      *(Note: Chart visualizes average processing time only for model/region combinations that were available and returned results during testing.)*
+
+* **Decision:** Based on these empirical results, `gemini-2.0-flash-lite-001` deployed in `europe-west4` was selected as the optimal base model for this project, balancing availability, speed, and capability.
+
+### 3.4. Fine-tuning Strategy (Planned & In Progress)
+
+* **Motivation:** While the base `gemini-2.0-flash-lite-001` model provides a strong starting point with prompt engineering, fine-tuning is essential to significantly enhance its performance on the specific hackathon task, particularly improving the accuracy and reliability of **descriptive localization** and overall **batch processing efficiency** for typical EdTech documents.
+* **Methodology:** Employing **Parameter-Efficient Fine-Tuning (PEFT)** using **LoRA (Low-Rank Adaptation)** via the Vertex AI managed tuning service. This allows adapting the large model efficiently using a smaller dataset and fewer computational resources. A LoRA rank of `4` was chosen as a starting point.
+* **Dataset:** A custom dataset was prepared in JSONL format, containing examples mapping input document GCS URIs (`gs://harishi-gdg-tuning-data/...`) to the desired structured Markdown output, including manually verified or corrected descriptive localization strings. This dataset (`tuning_data.jsonl`) currently contains initial examples and resides in GCS.
+* **Current Status:** The fine-tuning job has been successfully launched via the **Vertex AI Studio UI** using the prepared dataset, targeting 100 training steps with LoRA rank 4. The job is currently running.
 
 ### 3.5. Key Libraries
 
-* **Google Cloud:** `google-cloud-aiplatform`
+* **Google Cloud:** `google-cloud-aiplatform` (including `vertexai`)
 * **PDF Handling:** `PyMuPDF` (fitz)
 * **Image Handling:** `Pillow`
 * **Configuration:** `python-dotenv`
+* **Utilities:** `json`, `logging`, `os`, `re`, `mimetypes`
 * **Testing/Analysis:** `pandas`, `matplotlib` (in `test_models.ipynb`)
    
 
@@ -130,31 +148,33 @@ To fulfill the GDG Build with AI Hackathon task by creating a specialized VLLM s
 ### 4.1. Current Status
 
 * **Completed:**
-    * Systematic testing of various Gemini models and regions (`test_models.ipynb`).
-    * Selection of `gemini-2.0-flash-lite-001` in `europe-west4` as the base model.
-    * Implementation of the core inference pipeline (`vllm_handler.py`) using the selected base model.
-    * Refined prompt engineering focused on extraction, descriptive localization, and categorization.
-    * Handling of input types: `.txt`, `.pdf` (multi-page rendering), images (`.png`, `.jpg`, `.jpeg`).
-    * Improved error handling during file processing and API interaction.
-    * Structured JSON output generation.
-* **In Progress / Planned Next:**
-    * **Fine-tuning Planning:** Defining the specific PEFT/LoRA parameters and Vertex AI job configuration.
-    * **Dataset Preparation:** Creating or sourcing a suitable dataset with documents and target outputs including descriptive localization for fine-tuning.
+    * Base model selection (`gemini-2.0-flash-lite-001` @ `europe-west4`) via systematic testing.
+    * Implementation of the core inference pipeline (`vllm_handler.py`, `utils.py`, `main.py`) using the base model.
+    * Refined prompt engineering for structured output (Type, Summary, Key Info & Localization, Category).
+    * Recursive handling of input file types (`.txt`, `.pdf`, images) from subdirectories.
+    * Initial dataset creation (`tuning_data.jsonl`) with examples uploaded to GCS.
+    * Successful launch of the **LoRA fine-tuning job** via Vertex AI Console UI.
+* **In Progress:**
+    * **Fine-tuning Job Execution:** Waiting for the Vertex AI fine-tuning job to complete.
 
 ### 4.2. Next Steps / Roadmap
 
-1.  **Dataset Finalization:** Complete the creation and formatting of the fine-tuning dataset.
-2.  **Fine-tuning Execution:** Configure and launch the fine-tuning job on Vertex AI using the prepared dataset and chosen PEFT method (LoRA).
-3.  **Evaluation:** Rigorously evaluate the fine-tuned model's performance compared to the base model, focusing on improvements in extraction accuracy, localization correctness, and potentially processing speed/cost.
-4.  **MVP Logic Implementation:** Implement the specific EdTech processing logic in `src/main.py :: process_edtech_analysis` using the output from the (ideally fine-tuned) model.
-5.  *(Optional/Stretch Goal):* Integrate parsing for `.docx` files if time permits.
-6.  **Documentation & Video:** Finalize project documentation and prepare the 3-minute presentation video for submission.
+1.  **Monitor Fine-tuning Job:** Track the job status in the Vertex AI Console until "Succeeded".
+2.  **Integrate Tuned Model:** Once successful, obtain the tuned model endpoint/ID and update `src/vllm_handler.py` to use it for inference.
+3.  **Evaluate Tuned Model:** Test the fine-tuned model's performance on sample documents. Compare its accuracy (especially localization) against the base model's output. Add more data and retrain if necessary and time permits.
+4.  **Implement MVP Logic:** Implement the specific EdTech processing logic in `src/main.py :: process_edtech_analysis` using the output from the fine-tuned model.
+5.  *(Optional/Stretch Goal):* Integrate parsing for `.docx` files.
+6.  **Finalize Documentation & Video:** Update README with final results/status and prepare the 3-minute presentation video.
+
+### 4.3. Development Challenges & Troubleshooting
+
+*(This section details challenges encountered during development. See previous response for the detailed text or paste the version you created here.)*
 
 ---
 
 ## 5. How to Run Locally (Inference)
 
-This describes how to run the current project using the **base pre-trained model** for inference. Fine-tuning requires separate steps on Google Cloud.
+This describes how to run the current project using the **currently configured model** (base model until fine-tuning completes and `vllm_handler.py` is updated).
 
 ### 5.1. Prerequisites
 
@@ -166,26 +186,23 @@ This describes how to run the current project using the **base pre-trained model
 ### 5.2. Setup
 
 1.  **Clone:** `git clone https://github.com/Harishi0375/GDG_HACKATHON.git && cd GDG_HACKATHON`
-2.  **Environment:** `python -m venv venv && source venv/bin/activate` (or equivalent for your OS)
+2.  **Environment:** `python -m venv venv && source venv/bin/activate` (or equivalent)
 3.  **Install:** `pip install -r requirements.txt`
 4.  **Authenticate:** `gcloud auth application-default login`
 5.  **Configure `.env`:**
     * Copy `.env.example` to `.env`.
     * Edit `.env` and set `GCP_PROJECT_ID` to your project ID.
-    * Set `GCP_REGION` to the region where the chosen model is available (e.g., `europe-west4` for `gemini-2.0-flash-lite-001`).
+    * Set `GCP_REGION` to the region where the model (base or tuned) is deployed (e.g., `europe-west4`).
 
 ### 5.3. Execution
 
-1.  Place input documents (`.txt`, `.pdf`, `.png`, `.jpg`, `.jpeg`) into the `inputs/` directory.
+1.  Place input documents (`.txt`, `.pdf`, `.png`, `.jpg`, `.jpeg`) into the `inputs/` directory or its subfolders (`pdf/`, `png/`, etc.).
 2.  Run the main script: `python src/main.py`
 3.  Check console output and the generated `outputs/results.json` file.
 
 ### 5.4. Note on Fine-tuning
 
-Running the **fine-tuning process** itself is not done via `python src/main.py`. It requires:
-* Preparing a dataset in a format suitable for Vertex AI (e.g., JSONL uploaded to GCS).
-* Using the Google Cloud Console or `gcloud` CLI / Vertex AI SDK to configure and launch a fine-tuning job, specifying the base model (`gemini-2.0-flash-lite-001`), the dataset location, and PEFT parameters (like LoRA settings).
-* Refer to the official [Vertex AI documentation on fine-tuning](https://cloud.google.com/vertex-ai/generative-ai/docs/models/tune-models) for detailed steps.
+The fine-tuning job itself was launched via the Google Cloud Console UI. Using the *tuned* model requires updating the model identifier in `src/vllm_handler.py` after the tuning job successfully completes.
 
 ---
 
@@ -195,31 +212,34 @@ Running the **fine-tuning process** itself is not done via `python src/main.py`.
 ```
 GDG_HACKATHON/
 ├── .git/
-├── .gitignore
-├── venv/
-├── inputs/             # Input images and text files
-│   ├── example_image.jpg
-│   └── example_text.txt
-├── outputs/            # Extracted information (e.g., JSON)
-│   │── results.json
-│   └── model_test_outputs.json # Raw outputs from test_models.ipynb
-├── src/                # Source code
-│   ├── __init__.py
-│   ├── main.py         # Main execution script
-│   ├── utils.py        # Helper functions
-│   ├── vllm_handler.py # Gemini API interaction logic
-│   └── config.py       # Configuration and API key loading
-├── requirements.txt    # Python dependencies
-├── README.md           # Project overview
-├── .env.example        # Example environment variables file
-└── test_models.ipynb   # Notebook for testing model speed/availability
+├── .gitignore                # Specifies intentionally untracked files
+├── data/                     # Local fine-tuning data prep (Gitignored)
+│   └── tuning_data.jsonl
+├── graphs/                   # Images/Graphs for README
+│   ├── table.png
+│   └── output.png
+├── inputs/                   # Example input documents (Gitignored)
+│   ├── pdf/
+│   ├── png/
+│   ├── jpeg/
+│   └── jpg/
+├── outputs/                  # Generated output files (Gitignored)
+│   ├── results.json
+│   └── model_test_outputs.json
+├── src/                      # Source code directory
+│   ├── __init__.py           # Makes 'src' a Python package
+│   ├── config.py             # Loads configuration (.env)
+│   ├── main.py               # Main execution script (runs inference)
+│   ├── utils.py              # File I/O, PDF parsing, recursive file search etc.
+│   └── vllm_handler.py       # Handles Vertex AI API interaction (inference)
+├── venv/                     # Python virtual environment (Gitignored)
+├── .env                      # Local environment variables (Gitignored)
+├── .env.example              # Example environment variables file
+├── README.md                 # This project overview file
+├── requirements.txt          # Python dependencies
+├── run_finetuning.py         # Script to launch tuning job via SDK (kept for reference)
+└── test_models.ipynb         # Notebook for testing model speed/availability
 ```
-
----
-
-## 7. Contributing
-
-This project was developed solely by Harishi for the GDG Build with AI Hackathon 2025 at Constructor University Bremen. As such, contributions are not being sought at this time.
 
 ---
 
@@ -236,5 +256,3 @@ This project was developed solely by Harishi for the GDG Build with AI Hackathon
 * [Gemini API Documentation](https://ai.google.dev/docs)
 * [Paper: Scaling Down to Scale Up: A Guide to Parameter-Efficient Fine-Tuning](https://arxiv.org/abs/2303.15647) (Referenced in `google fine tuning.pdf`)
 * [GDG Hackathon Presentation Slides]
-
----
