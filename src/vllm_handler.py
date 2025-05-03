@@ -1,4 +1,4 @@
-#vllm_handler.py
+# src/vllm_handler.py
 import logging
 import os
 from PIL import Image # For handling images
@@ -43,7 +43,7 @@ def initialize_vertex_ai():
 
     try:
         logging.info(f"Initializing Vertex AI for project '{config.GCP_PROJECT_ID}' in region '{config.GCP_REGION}'")
-        # Ensure region is set correctly (e.g., us-central1 or europe-west3 worked for flash model)
+        # Ensure region is set correctly
         vertexai.init(project=config.GCP_PROJECT_ID, location=config.GCP_REGION)
         _vertex_ai_initialized = True
         logging.info("Vertex AI initialized successfully.")
@@ -58,7 +58,7 @@ def analyze_content(file_path: str) -> str:
     """
     Analyzes the content of an image, text, or PDF file using the specified Vertex AI Gemini model.
     For PDFs, it renders each page as an image.
-    NOTE: Using gemini-2.0-flash-001 as the accessible model based on testing and mentor feedback.
+    Uses the fine-tuned model endpoint if available and configured.
 
     Args:
         file_path: The absolute path to the input file (image, text, or PDF).
@@ -75,49 +75,48 @@ def analyze_content(file_path: str) -> str:
 
     if not os.path.exists(file_path):
         logging.error(f"File not found: {file_path}")
-        return "Error: File not found."
+        return f"Error: File not found at path '{file_path}'."
 
     try:
         # Determine file type (MIME type)
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type is None:
-            # Guess based on extension if MIME type fails
             _, ext = os.path.splitext(file_path.lower())
             if ext == ".pdf":
                 mime_type = "application/pdf"
             elif ext in utils.SUPPORTED_TEXT_EXTENSIONS:
                  mime_type = "text/plain"
             elif ext in utils.SUPPORTED_IMAGE_EXTENSIONS:
-                 mime_type = f"image/{ext[1:]}" # Basic image MIME type guess
+                 mime_type = f"image/{ext[1:]}" if ext[1:] else "image/unknown"
             else:
-                logging.warning(f"Could not determine MIME type for {file_path}. Attempting as text.")
-                mime_type = "text/plain"
+                logging.warning(f"Could not determine MIME type for {file_path}. Skipping.")
+                return f"Error: Unsupported file type or unknown extension for {os.path.basename(file_path)}."
 
         logging.info(f"Processing as MIME type: {mime_type}")
 
         # --- Prepare content parts based on type ---
-        request_contents_list = [] # List to hold parts for the API request
+        request_contents_list = []
 
         if mime_type.startswith("image/"):
             try:
-                # Load image using Pillow first to ensure it's valid
-                img = Image.open(file_path)
-                # Convert to Vertex AI Image Part
+                with Image.open(file_path) as img:
+                    img.verify()
                 image_part = Part.from_image(VertexImage.load_from_file(file_path))
                 request_contents_list.append(image_part)
                 logging.info(f"Prepared image part for {os.path.basename(file_path)}")
+            except FileNotFoundError:
+                logging.error(f"File not found error during image loading: {file_path}")
+                return f"Error: File not found when trying to load image {os.path.basename(file_path)}."
             except Exception as img_err:
-                 logging.error(f"Failed to load image file {file_path}: {img_err}", exc_info=True)
-                 return f"Error: Could not load image file {os.path.basename(file_path)}."
+                 logging.error(f"Failed to load or invalid image file {file_path}: {img_err}", exc_info=True)
+                 return f"Error: Could not load or invalid image file {os.path.basename(file_path)}."
 
         elif mime_type.startswith("text/"):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     text_content = f.read()
-                # Handle potentially empty text files
                 if not text_content.strip():
                     logging.warning(f"Text file is empty or contains only whitespace: {file_path}")
-                    # Return a specific message or analyze the empty string? Let's return a message.
                     return "Info: Input text file is empty."
                 request_contents_list.append(Part.from_text(text_content))
                 logging.info(f"Prepared text part for {os.path.basename(file_path)}")
@@ -126,11 +125,10 @@ def analyze_content(file_path: str) -> str:
                  return f"Error: Could not read text file {os.path.basename(file_path)}."
 
         elif mime_type == "application/pdf":
-            if not utils.fitz: # Check if PyMuPDF is available
+            if not utils.fitz:
                  return "Error: PDF processing requires PyMuPDF. Please install it (`pip install PyMuPDF`)."
             try:
-                # Render each page as an image and add to request parts
-                MAX_PDF_PAGES_TO_SEND = 5 # Limit pages for API request size/cost
+                MAX_PDF_PAGES_TO_SEND = 5
                 doc = utils.fitz.open(file_path)
                 num_pages = len(doc)
                 logging.info(f"Processing PDF with {num_pages} pages. Sending first {min(num_pages, MAX_PDF_PAGES_TO_SEND)} pages.")
@@ -138,57 +136,67 @@ def analyze_content(file_path: str) -> str:
                 for page_num in range(min(num_pages, MAX_PDF_PAGES_TO_SEND)):
                     img_bytes = utils.render_pdf_page_to_image_bytes(file_path, page_num)
                     if img_bytes:
-                        # Create Vertex AI Image Part directly from bytes
                         pdf_image_part = Part.from_data(data=img_bytes, mime_type="image/png")
                         request_contents_list.append(pdf_image_part)
                         logging.info(f"Prepared image part for PDF page {page_num} of {os.path.basename(file_path)}")
                     else:
                         logging.warning(f"Could not render page {page_num} of PDF {file_path}.")
                 doc.close()
-                if not request_contents_list: # If no pages could be rendered
+                if not request_contents_list:
                     return f"Error: Could not render any pages from PDF {os.path.basename(file_path)}."
 
             except Exception as pdf_err:
                  logging.error(f"Failed to process PDF file {file_path}: {pdf_err}", exc_info=True)
-                 # Ensure doc is closed if opened
-                 if 'doc' in locals() and doc:
-                     try:
-                         doc.close()
-                     except Exception as close_err:
-                         logging.error(f"Error closing PDF after processing error: {close_err}")
+                 if 'doc' in locals() and doc and not doc.is_closed:
+                     try: doc.close()
+                     except Exception: pass
                  return f"Error: Could not process PDF file {os.path.basename(file_path)}."
 
         else:
-            logging.error(f"Unsupported file type: {mime_type} for file {os.path.basename(file_path)}")
+            logging.error(f"Unsupported file type slipped through: {mime_type} for file {os.path.basename(file_path)}")
             return f"Error: Unsupported file type '{mime_type}'."
 
-        # Check if any content parts were actually prepared
         if not request_contents_list:
              logging.error(f"No content parts could be prepared for file: {file_path}")
-             # This case might be hit if, e.g., a text file was empty and skipped
              return f"Info: No processable content found in file {os.path.basename(file_path)}."
 
         # --- Prepare and send request to Gemini ---
-        # *** Using the accessible Flash model based on testing and mentor feedback ***
-        model_name_to_use = "gemini-2.0-flash-lite-001"
-        model = GenerativeModel(model_name_to_use)
-        logging.info(f"Using model: {model._model_name}")
 
-        # *** Define the prompt including the Categorization step ***
-        # This prompt is designed to guide the Flash model towards precise output.
+        # *** MODIFICATION START: Use the Fine-Tuned Model ID ***
+        # Comment out the base model loading
+        # model_name_to_use = "gemini-2.0-flash-lite-001"
+        # model = GenerativeModel(model_name_to_use)
+
+        # Define the identifier for your successfully tuned model
+        tuned_model_name = "projects/248124319532/locations/europe-west4/models/8219698240602243072"
+
+        logging.info(f"Using TUNED model: {tuned_model_name}")
+        # Load the fine-tuned model using from_pretrained
+        try:
+            model = GenerativeModel.from_pretrained(tuned_model_name)
+            # Optional: Log the actual loaded model name if available
+            # if hasattr(model, '_model_name'):
+            #    logging.info(f"Successfully loaded tuned model reference: {model._model_name}")
+            # else:
+            #    logging.info("Successfully obtained tuned model reference.")
+        except Exception as load_err:
+            logging.error(f"Failed to load tuned model '{tuned_model_name}': {load_err}", exc_info=True)
+            return f"Error: Could not load fine-tuned model '{tuned_model_name}'"
+        # *** MODIFICATION END ***
+
         prompt = """
         Your task is to act as an expert document analyst. Analyze the provided document content meticulously. Even if the content is very short, analyze the content itself.
 
         Follow these steps precisely and structure your output exactly as shown using Markdown headings:
 
         **Document Type:**
-        [Identify the type: e.g., Handwritten Notes, Typed Essay, Scientific Paper, Form, Receipt, General Text, PDF Page Image. Note if handwriting is present.]
+        [Identify the type: e.g., Handwritten Notes, Typed Essay, Scientific Paper, Form, Receipt, General Text, PDF Page Image, Bar Chart, Line Graph, Diagram. Note if handwriting is present.]
 
         **Summary:**
-        [Provide a concise 1-2 sentence summary of the main topic or purpose.]
+        [Provide a concise 1-2 sentence summary of the main topic or purpose. For charts/graphs, describe what it represents.]
 
         **Key Information & Localization:**
-        [Identify and extract crucial pieces of information (main points, arguments, data, numbers, dates, names, definitions, student answers, form fields/values). For EACH piece of information, describe its precise location (Text files: line/paragraph; Images/PDF pages: visual location like 'top-left', 'table row 3, column 2', 'page 2 image, bottom margin'). Use bullet points for clarity.]
+        [Identify and extract crucial pieces of information (main points, arguments, data points from charts/graphs, axis labels, legends, titles, definitions, form fields/values). For EACH piece of information, describe its precise location (Text files: line/paragraph; Images/PDF pages: visual location like 'top-left', 'bar corresponding to 'Category A'', 'X-axis label', 'legend entry for Series 1'). Use bullet points for clarity.]
         * [Extracted Info 1]
             * Location: [Precise location description]
             * Confidence: [High, Medium, or Low]
@@ -198,14 +206,11 @@ def analyze_content(file_path: str) -> str:
         * ... (continue for all key pieces)
 
         **Category:**
-        [Assign ONE category based on the content from this list: Lecture Notes, Essay Draft, Research Paper, Assignment Submission, Admin Form, Other. If unsure, state 'Other'.]
+        [Assign ONE category based on the content from this list: Lecture Notes, Essay Draft, Research Paper, Assignment Submission, Admin Form, Data Visualization, Other. If unsure, state 'Other'.]
         """
 
-        # Combine the prompt and the content parts
-        # Add the text prompt AFTER the image/text/pdf parts
         request_contents = request_contents_list + [Part.from_text(prompt)]
 
-        # Configure safety settings
         safety_settings = {
             generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
             generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -213,47 +218,46 @@ def analyze_content(file_path: str) -> str:
             generative_models.HarmCategory.HARM_CATEGORY_HARASSMENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
         }
 
-        # Configure generation parameters
         generation_config = {
-            "max_output_tokens": 2048, # Flash models might have lower limits than Pro
-            "temperature": 0.3,      # Keep temperature low for extraction
+            "max_output_tokens": 2048,
+            "temperature": 0.3,
             "top_p": 0.95,
             "top_k": 40,
         }
 
-        # Send the request to the model
-        logging.info(f"Sending request to Vertex AI Gemini model ({model_name_to_use}) for file: {os.path.basename(file_path)}...")
+        logging.info(f"Sending request to Vertex AI Gemini model ({tuned_model_name}) for file: {os.path.basename(file_path)}...")
         responses = model.generate_content(
             request_contents,
             generation_config=generation_config,
             safety_settings=safety_settings,
-            stream=False, # Process the whole response at once
+            stream=False,
         )
 
         logging.info(f"Received response from model for file: {os.path.basename(file_path)}.")
 
-        # Process the response, checking for blocks
-        analysis_result = "Error: Failed to process model response." # Default error
+        analysis_result = "Error: Failed to process model response."
         try:
-            # Check finish reason first for potential blocking
-            if responses.candidates and responses.candidates[0].finish_reason != FinishReason.STOP:
+            if not responses.candidates:
+                 feedback_reason = responses.prompt_feedback.block_reason if hasattr(responses, 'prompt_feedback') and responses.prompt_feedback else "UNKNOWN"
+                 logging.error(f"Analysis failed for {os.path.basename(file_path)}. No candidates returned. Reason: {feedback_reason}. Response: {responses}")
+                 analysis_result = f"Error: Analysis failed. No candidates returned. Reason: {feedback_reason}"
+            elif responses.candidates[0].finish_reason != FinishReason.STOP:
                 finish_reason_name = FinishReason(responses.candidates[0].finish_reason).name
                 logging.error(f"Analysis stopped for {os.path.basename(file_path)} due to finish reason: {finish_reason_name}")
                 analysis_result = f"Error: Analysis stopped due to {finish_reason_name}. Check safety settings or input content."
-            # Check if text attribute exists and is not empty
-            elif hasattr(responses, 'text') and responses.text:
-                 analysis_result = responses.text
+            elif not responses.candidates[0].content.parts:
+                 logging.error(f"Model response for {os.path.basename(file_path)} had no content parts (FinishReason=STOP). Response: {responses}")
+                 analysis_result = "Error: Model response was empty (no parts)."
             else:
-                 # If finish reason is STOP but no text, it's likely an empty response
-                 logging.error(f"Model response for {os.path.basename(file_path)} was empty or unexpected (FinishReason=STOP, no text). Response: {responses}")
-                 analysis_result = "Error: Model response was empty or unexpected."
+                 try:
+                     analysis_result = responses.text
+                 except ValueError as e:
+                     logging.warning(f"Could not directly access text from response for {os.path.basename(file_path)}. Error: {e}. Full Parts: {responses.candidates[0].content.parts}")
+                     analysis_result = " ".join(part.text for part in responses.candidates[0].content.parts if hasattr(part, 'text'))
+                     if not analysis_result:
+                         analysis_result = "Error: Could not parse text from model response parts."
 
-        except ValueError as e:
-            # This might catch issues if .text is not available even if finish_reason was STOP
-            logging.warning(f"Could not directly access text from response for {os.path.basename(file_path)}. Error: {e}. Response: {responses}")
-            analysis_result = "Error: Could not parse text from model response."
         except Exception as e_resp:
-             # Catch other potential errors accessing response parts
              logging.error(f"Unexpected error processing model response for {os.path.basename(file_path)}: {e_resp}", exc_info=True)
              analysis_result = f"Error: Unexpected error processing response: {e_resp}"
 
@@ -264,41 +268,40 @@ def analyze_content(file_path: str) -> str:
         logging.error(f"File not found during processing: {file_path}")
         return "Error: File not found during processing."
     except ImportError:
-        # This might catch the PyMuPDF import error if it wasn't installed
         logging.error("Error: Required libraries (google-cloud-aiplatform, Pillow, PyMuPDF) not found. Please install requirements.")
         return "Error: Required libraries not installed."
     except Exception as e:
-        # Catch other potential API errors or general exceptions
         logging.error(f"An error occurred during analysis for {os.path.basename(file_path)}: {e}", exc_info=True)
         return f"Error: An unexpected error occurred during analysis for {os.path.basename(file_path)}: {e}"
 
 # --- Example Usage (for testing this script directly) ---
 if __name__ == '__main__':
+    # Run this specific script from the project root directory using:
     # python -m src.vllm_handler
 
     if not config.GCP_PROJECT_ID or not config.GCP_REGION:
          print("Error: GCP_PROJECT_ID or GCP_REGION not set in .env file or environment.")
     else:
-        # Prioritize testing PDF, then image, then text
-        test_file_pdf = os.path.join(config.INPUT_DIR, "example_document.pdf") # CHANGE FILENAME if needed
-        test_file_img = os.path.join(config.INPUT_DIR, "example_image.jpg") # CHANGE FILENAME if needed
-        test_file_txt = os.path.join(config.INPUT_DIR, "example_text.txt") # CHANGE FILENAME if needed
-        test_file_to_use = None
+        # Define the specific file to test
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        # --- !! CHANGE THIS PATH TO TEST DIFFERENT FILES !! ---
+        # Example: Test the PDF used in tuning
+        test_file_to_use = os.path.join(project_root, "inputs", "pdf", "ML - assignment 4.pdf")
+        # Example: Test the JPG used in tuning
+        # test_file_to_use = os.path.join(project_root, "inputs", "jpg", "test.jpg")
+        # Example: Test the PNG chart used in tuning
+        # test_file_to_use = os.path.join(project_root, "inputs", "png", "output.png")
+        # ----------------------------------------------------
+        test_file_to_use = os.path.abspath(test_file_to_use)
 
-        if os.path.exists(test_file_pdf):
-            test_file_to_use = test_file_pdf
-        elif os.path.exists(test_file_img):
-            test_file_to_use = test_file_img
-        elif os.path.exists(test_file_txt):
-             test_file_to_use = test_file_txt
+        print(f"Attempting to test analysis using the TUNED model for: {test_file_to_use}")
 
-        if test_file_to_use:
-            print(f"--- Testing analysis for: {test_file_to_use} ---")
-            result = analyze_content(test_file_to_use)
+        if os.path.exists(test_file_to_use):
+            print(f"--- Testing analysis for: {os.path.basename(test_file_to_use)} ---")
+            result = analyze_content(test_file_to_use) # This now uses the tuned model ID
             print("\n--- Analysis Result ---")
             print(result)
             print("-----------------------")
         else:
-            print(f"Test file not found: No example PDF, image, or text file found in '{config.INPUT_DIR}'.")
-            print(f"Please add a test file (e.g., example_document.pdf) to the '{config.INPUT_DIR}' directory.")
-
+            print(f"Test file not found: '{test_file_to_use}'")
+            print(f"Please ensure the file exists at that location relative to the project structure.")
