@@ -1,7 +1,24 @@
-google-cloud-aiplatform
-Pillow
-python-dotenv
-google-cloud-storage
-PyMuPDF
-pandas
-matplotlib
+# Flask framework and CORS handling
+Flask>=2.0
+Flask-Cors>=3.0
+
+# WSGI Server for Production (Recommended for Cloud Run)
+gunicorn>=20.0
+Werkzeug>=2.0 # Flask dependency, good to include explicitly
+
+# Google Cloud Libraries
+google-cloud-aiplatform>=1.0.0
+google-cloud-storage>=1.0 # Add version if needed
+
+# PDF Handling
+PyMuPDF>=1.18.0
+
+# Image Handling
+Pillow>=8.0 # Keep Pillow
+
+# Data Handling / Visualization (Keep if used)
+pandas>=1.0
+matplotlib>=3.0
+
+# Environment Variable Loading (Optional for Cloud Run if using built-in env vars)
+python-dotenv>=0.15.0

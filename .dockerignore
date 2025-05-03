@@ -1,0 +1,15 @@
+
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.git/
+.gitignore
+*.md
+inputs/
+outputs/
+graphs/
+my_learning/
+data/
