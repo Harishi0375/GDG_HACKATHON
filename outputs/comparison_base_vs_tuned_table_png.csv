@@ -3,7 +3,7 @@ inputs/png/output.png,"**Document Type:**
 Bar Chart
 
 **Summary:**
-This bar chart compares the average time per image (in milliseconds) for different Gemini model configurations across various regions.
+The bar chart compares the average time per image (in milliseconds) for different Gemini models across various regions.
 
 **Key Information & Localization:**
 *   Gemini Model Speed Comparison
@@ -15,28 +15,46 @@ This bar chart compares the average time per image (in milliseconds) for differe
 *   Model @ Region
     *   Location: X-axis label
     *   Confidence: High
-*   gemini-2.0-flash-lite-001 @ europe-west4: 1670 ms
-    *   Location: First bar, top
+*   gemini-2.0-flash-lite-001 @ europe-west4
+    *   Location: X-axis, first bar
     *   Confidence: High
-*   gemini-2.0-flash-001 @ europe-west4: 1829 ms
-    *   Location: Second bar, top
+*   1670 ms
+    *   Location: Above the first bar
     *   Confidence: High
-*   gemini-2.0-flash-001 @ europe-west1: 1868 ms
-    *   Location: Third bar, top
+*   gemini-2.0-flash-001 @ europe-west4
+    *   Location: X-axis, second bar
     *   Confidence: High
-*   gemini-2.0-flash-lite-001 @ europe-west1: 1915 ms
-    *   Location: Fourth bar, top
+*   1829 ms
+    *   Location: Above the second bar
     *   Confidence: High
-*   gemini-2.0-flash-lite-001 @ us-central1: 2502 ms
-    *   Location: Fifth bar, top
+*   gemini-2.0-flash-001 @ europe-west1
+    *   Location: X-axis, third bar
     *   Confidence: High
-*   gemini-2.0-flash-001 @ us-central1: 4495 ms
-    *   Location: Sixth bar, top
+*   1868 ms
+    *   Location: Above the third bar
+    *   Confidence: High
+*   gemini-2.0-flash-lite-001 @ europe-west1
+    *   Location: X-axis, fourth bar
+    *   Confidence: High
+*   1915 ms
+    *   Location: Above the fourth bar
+    *   Confidence: High
+*   gemini-2.0-flash-lite-001 @ us-central1
+    *   Location: X-axis, fifth bar
+    *   Confidence: High
+*   2502 ms
+    *   Location: Above the fifth bar
+    *   Confidence: High
+*   gemini-2.0-flash-001 @ us-central1
+    *   Location: X-axis, sixth bar
+    *   Confidence: High
+*   4495 ms
+    *   Location: Above the sixth bar
     *   Confidence: High
 
 **Category:**
 Data Visualization
-",3.095759391784668,"**Document Type:**
+",3.1516549587249756,"**Document Type:**
 Bar Chart Image
 
 **Summary:**
@@ -73,112 +91,127 @@ The bar chart compares the average time per image (in milliseconds) for differen
 
 **Category:**
 Data Visualization
-",2.569368600845337
+",2.5037341117858887
 inputs/png/table.png,"**Document Type:**
 Table
 
 **Summary:**
-The table displays information about different models of a system, including their region, status, average time, and errors.
+This table presents performance data for different Gemini models across various regions, including average time and error information.
 
 **Key Information & Localization:**
-*   Model: gemini-2.0-flash-001
-    *   Location: Row 0, Column 1
+*   Model column header
+    *   Location: Top of the table, second column
     *   Confidence: High
-*   Region: us-central1
-    *   Location: Row 0, Column 2
+*   Region column header
+    *   Location: Top of the table, third column
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 0, Column 3
+*   Status column header
+    *   Location: Top of the table, fourth column
     *   Confidence: High
-*   Avg Time (ms): 4495
-    *   Location: Row 0, Column 4
+*   Avg Time (ms) column header
+    *   Location: Top of the table, fifth column
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 0, Column 5
+*   Errors column header
+    *   Location: Top of the table, sixth column
     *   Confidence: High
-*   Model: gemini-2.0-flash-lite-001
-    *   Location: Row 1, Column 1
+*   gemini-2.0-flash-001
+    *   Location: Row 0, column 1
     *   Confidence: High
-*   Region: us-central1
-    *   Location: Row 1, Column 2
+*   us-central1
+    *   Location: Row 0, column 2
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 1, Column 3
+*   Available
+    *   Location: Row 0, column 3
     *   Confidence: High
-*   Avg Time (ms): 2502
-    *   Location: Row 1, Column 4
+*   4495
+    *   Location: Row 0, column 4
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 1, Column 5
+*   None
+    *   Location: Row 0, column 5
     *   Confidence: High
-*   Model: gemini-2.0-flash-001
-    *   Location: Row 2, Column 1
+*   gemini-2.0-flash-lite-001
+    *   Location: Row 1, column 1
     *   Confidence: High
-*   Region: europe-west1
-    *   Location: Row 2, Column 2
+*   us-central1
+    *   Location: Row 1, column 2
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 2, Column 3
+*   Available
+    *   Location: Row 1, column 3
     *   Confidence: High
-*   Avg Time (ms): 1868
-    *   Location: Row 2, Column 4
+*   2502
+    *   Location: Row 1, column 4
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 2, Column 5
+*   None
+    *   Location: Row 1, column 5
     *   Confidence: High
-*   Model: gemini-2.0-flash-lite-001
-    *   Location: Row 3, Column 1
+*   gemini-2.0-flash-001
+    *   Location: Row 2, column 1
     *   Confidence: High
-*   Region: europe-west1
-    *   Location: Row 3, Column 2
+*   europe-west1
+    *   Location: Row 2, column 2
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 3, Column 3
+*   Available
+    *   Location: Row 2, column 3
     *   Confidence: High
-*   Avg Time (ms): 1915
-    *   Location: Row 3, Column 4
+*   1868
+    *   Location: Row 2, column 4
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 3, Column 5
+*   None
+    *   Location: Row 2, column 5
     *   Confidence: High
-*   Model: gemini-2.0-flash-001
-    *   Location: Row 4, Column 1
+*   gemini-2.0-flash-lite-001
+    *   Location: Row 3, column 1
     *   Confidence: High
-*   Region: europe-west4
-    *   Location: Row 4, Column 2
+*   europe-west1
+    *   Location: Row 3, column 2
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 4, Column 3
+*   Available
+    *   Location: Row 3, column 3
     *   Confidence: High
-*   Avg Time (ms): 1829
-    *   Location: Row 4, Column 4
+*   1915
+    *   Location: Row 3, column 4
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 4, Column 5
+*   None
+    *   Location: Row 3, column 5
     *   Confidence: High
-*   Model: gemini-2.0-flash-lite-001
-    *   Location: Row 5, Column 1
+*   gemini-2.0-flash-001
+    *   Location: Row 4, column 1
     *   Confidence: High
-*   Region: europe-west4
-    *   Location: Row 5, Column 2
+*   europe-west4
+    *   Location: Row 4, column 2
     *   Confidence: High
-*   Status: Available
-    *   Location: Row 5, Column 3
+*   Available
+    *   Location: Row 4, column 3
     *   Confidence: High
-*   Avg Time (ms): 1670
-    *   Location: Row 5, Column 4
+*   1829
+    *   Location: Row 4, column 4
     *   Confidence: High
-*   Errors: None
-    *   Location: Row 5, Column 5
+*   None
+    *   Location: Row 4, column 5
+    *   Confidence: High
+*   gemini-2.0-flash-lite-001
+    *   Location: Row 5, column 1
+    *   Confidence: High
+*   europe-west4
+    *   Location: Row 5, column 2
+    *   Confidence: High
+*   Available
+    *   Location: Row 5, column 3
+    *   Confidence: High
+*   1670
+    *   Location: Row 5, column 4
+    *   Confidence: High
+*   None
+    *   Location: Row 5, column 5
     *   Confidence: High
 
 **Category:**
 Other
-",5.146103382110596,"**Document Type:**
+",5.04999852180481,"**Document Type:**
 Table
 
 **Summary:**
-The table displays performance metrics for different Gemini model versions across various regions, including average time in milliseconds and error counts.
+The table displays performance metrics for different Gemini model versions across various regions, including average time in milliseconds and error information.
 
 **Key Information & Localization:**
 * Model: gemini-2.0-flash-001
@@ -274,34 +307,34 @@ The table displays performance metrics for different Gemini model versions acros
 
 **Category:**
 Data Visualization
-",4.566185474395752
+",4.765872240066528
 inputs/png/test.png,"**Document Type:**
 General Text
 
 **Summary:**
-The document presents the opening lines from Charles Dickens' novel, *A Tale of Two Cities*, describing contrasting aspects of a particular era. It highlights the duality of the times, mentioning both positive and negative characteristics.
+The document presents the opening lines from Charles Dickens' novel, *A Tale of Two Cities*, describing contrasting aspects of a particular historical period. It highlights the duality of the times, mentioning both positive and negative characteristics.
 
 **Key Information & Localization:**
 *   ""It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness...""
-    *   Location: Top to bottom, spanning multiple lines.
+    *   Location: Top to bottom, spanning multiple lines of text.
     *   Confidence: High
 
 **Category:**
 Other
-",2.0571930408477783,"**Document Type:**
+",1.523768424987793,"**Document Type:**
 PDF Page Image
 
 **Summary:**
-The document is a paragraph from a novel, describing a time period with contrasting characteristics like ""best of times"" and ""worst of times.""
+The document is a page from a book, containing the famous opening lines of Charles Dickens' novel ""A Tale of Two Cities.""
 
 **Key Information & Localization:**
-* It was the best of times, it was the worst of times
-    * Location: Line 1-2
+* ""It was the best of times, it was the worst of times,""
+    * Location: Line 1
     * Confidence: High
-* it was the age of wisdom, it was the age of foolishness...
-    * Location: Line 3-4
+* ""it was the age of wisdom, it was the age of foolishness...""
+    * Location: Line 3
     * Confidence: High
 
 **Category:**
 Other
-",1.3814547061920166
+",1.2338097095489502
