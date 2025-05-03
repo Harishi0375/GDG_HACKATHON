@@ -43,5 +43,6 @@ EXPOSE 8080
 # Define the command to run the application using Gunicorn (production WSGI server).
 # -w 4: Number of worker processes (adjust based on load/instance size). 2-4 is common.
 # --bind 0.0.0.0:8080: Listen on all interfaces on port 8080 (Gunicorn uses $PORT if set).
+# --timeout 120: Increase worker timeout to 120 seconds.
 # src.api:app: Tells Gunicorn to run the 'app' object found in the 'src/api.py' module.
-CMD ["gunicorn", "-w", "4", "--bind", "0.0.0.0:8080", "src.api:app"]
+CMD ["gunicorn", "-w", "4", "--bind", "0.0.0.0:8080", "--timeout", "120", "src.api:app"]

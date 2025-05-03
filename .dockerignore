@@ -13,3 +13,6 @@ outputs/
 graphs/
 my_learning/
 data/
+run_finetuning.py
+test_models.ipynb
+compare_tuned_with_base.ipynb
