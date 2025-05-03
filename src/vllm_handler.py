@@ -64,13 +64,26 @@ def initialize_vertex_ai():
         logging.error(f"FATAL ERROR: Failed to initialize Vertex AI: {e}", exc_info=True)
         return False
 
-def analyze_content(file_path: str, model_id_override: str = None) -> str:
-    """Analyzes content using a specified Vertex AI Gemini model."""
+# --- MODIFIED FUNCTION SIGNATURE ---
+def analyze_content(file_path: str, user_prompt: str, model_id_override: str = None) -> str:
+    """
+    Analyzes content using a specified Vertex AI Gemini model, incorporating a user prompt.
+
+    Args:
+        file_path: Absolute path to the input file.
+        user_prompt: The specific question or instruction from the user.
+        model_id_override: Optional model ID or endpoint name to override defaults.
+
+    Returns:
+        A string containing the analysis result or an error message.
+    """
     if not initialize_vertex_ai():
          return "Error: Vertex AI could not be initialized. Check configuration and logs."
 
-    logging.info(f"Analyzing file: {file_path}")
+    # --- Log the received user prompt ---
+    logging.info(f"Analyzing file: {file_path} with user prompt: '{user_prompt[:100]}...'")
     print(f"DEBUG: analyze_content called for: {file_path}")
+    print(f"DEBUG: User Prompt Received: '{user_prompt}'")
 
     if not os.path.exists(file_path):
         logging.error(f"File not found: {file_path}")
@@ -98,8 +111,10 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
 
         logging.info(f"Processing as MIME type: {mime_type}")
         print(f"DEBUG: Mime type: {mime_type}")
-        request_contents_list = []
+        request_contents_list = [] # Holds the file content parts (image, text, pdf pages)
 
+        # --- File Content Processing (Image, Text, PDF) ---
+        # ... (Your existing code for loading file content into request_contents_list) ...
         # --- Image Handling Block (Using manual PNG load, fallback to VertexImage for others) ---
         if mime_type.startswith("image/"):
             if mime_type == "image/png":
@@ -143,7 +158,6 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
 
         # --- Text Handling Block ---
         elif mime_type.startswith("text/"):
-            # ... (text handling code remains the same) ...
             print(f"DEBUG: Entering text processing block for {os.path.basename(file_path)}")
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -159,14 +173,13 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
 
         # --- PDF Handling Block ---
         elif mime_type == "application/pdf":
-            # ... (PDF handling code remains the same) ...
             print(f"DEBUG: Entering PDF processing block for {os.path.basename(file_path)}")
             if not fitz_available:
                  logging.error("PyMuPDF (fitz) is not available in utils module.")
                  return "Error: PDF processing requires PyMuPDF. Please install it (`pip install PyMuPDF`)."
             doc = None
             try:
-                MAX_PDF_PAGES_TO_SEND = 1
+                MAX_PDF_PAGES_TO_SEND = 1 # Limit pages sent for analysis
                 doc = utils.fitz.open(file_path)
                 num_pages = len(doc)
                 logging.info(f"Processing PDF with {num_pages} pages. Sending first {min(num_pages, MAX_PDF_PAGES_TO_SEND)} pages.")
@@ -187,6 +200,7 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
                 if doc and hasattr(doc, 'is_closed') and not doc.is_closed:
                      try: doc.close()
                      except Exception: pass
+        # --- End PDF Handling ---
 
         else:
             logging.error(f"Unsupported MIME type: {mime_type} for file {os.path.basename(file_path)}")
@@ -196,12 +210,13 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
              logging.error(f"No content parts could be prepared for file: {file_path}")
              return f"Info: No processable content found in file {os.path.basename(file_path)}."
 
-        # --- CORRECTED Model Selection Logic ---
+        # --- Model Selection Logic ---
+        # ... (Your existing model selection logic remains the same) ...
         model = None
         model_name_to_use = None
         # Get IDs from config (ensure config.py is updated and loaded)
         default_tuned_model = getattr(config, 'TUNED_MODEL_ID', None)
-        default_base_model = getattr(config, 'BASE_MODEL_ID', "gemini-2.0-flash-lite-001")
+        default_base_model = getattr(config, 'BASE_MODEL_ID', "gemini-2.0-flash-lite-001") # Ensure a default base model
 
         if not default_tuned_model:
             logging.warning("TUNED_MODEL_ID not found or is None in config.py. Defaulting to base model if no override.")
@@ -216,7 +231,6 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
             logging.info(f"Using OVERRIDDEN model: {model_name_to_use}")
             print(f"DEBUG: Using OVERRIDDEN model: {model_name_to_use}")
             try:
-                # Try instantiating directly - works for base models and endpoint resource names
                 print(f"DEBUG: Attempting GenerativeModel('{model_name_to_use}')...")
                 model = GenerativeModel(model_name_to_use) # Use direct instantiation
                 logging.info(f"Successfully loaded OVERRIDDEN model: {model_name_to_use}")
@@ -231,13 +245,11 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
                     return f"Error: Could not load {error_prefix} '{model_name_to_use}' (Load Error: {load_err})."
 
         else: # Default model logic
-            # Prefer tuned model if configured AND it's a valid endpoint string
             if tuned_model_name and "endpoints/" in tuned_model_name:
                 model_name_to_use = tuned_model_name
                 logging.info(f"Using DEFAULT (tuned endpoint) model: {model_name_to_use}")
                 print(f"DEBUG: Using DEFAULT (tuned endpoint) model: {model_name_to_use}")
                 try:
-                    # Try instantiating directly with endpoint name
                     print(f"DEBUG: Attempting GenerativeModel('{model_name_to_use}')...")
                     model = GenerativeModel(model_name_to_use) # Use direct instantiation
                     logging.info(f"Successfully loaded DEFAULT (tuned endpoint) model: {model_name_to_use}")
@@ -275,12 +287,14 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
              print("DEBUG: Model object is None after selection block.")
              return "Error: Model object could not be instantiated (check previous errors)."
 
-        # --- Define Prompt, Config, API Call, Response Processing ---
-        # ... (rest of the code remains the same) ...
-        prompt = """
-        Your task is to act as an expert document analyst. Analyze the provided document content meticulously. Even if the content is very short, analyze the content itself.
+        # --- Define System Instructions/Structure Prompt ---
+        # This prompt tells the model HOW to structure its response.
+        system_instructions = """
+        Your task is to act as an expert document analyst. Analyze the provided document content meticulously based *only* on the user's request.
 
-        Follow these steps precisely and structure your output exactly as shown using Markdown headings:
+        Follow these steps precisely and structure your output exactly as requested by the user, or if the user asks for specific information (like summary, key points, data extraction), structure your output clearly using Markdown headings based on their request.
+
+        If the user asks a general question or requests analysis without specifying format, structure your output using the following default Markdown headings:
 
         **Document Type:**
         [Identify the type: e.g., Handwritten Notes, Typed Essay, Scientific Paper, Form, Receipt, General Text, PDF Page Image, Bar Chart, Line Graph, Diagram. Note if handwriting is present.]
@@ -289,21 +303,30 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
         [Provide a concise 1-2 sentence summary of the main topic or purpose. For charts/graphs, describe what it represents.]
 
         **Key Information & Localization:**
-        [Identify and extract crucial pieces of information (main points, arguments, data points from charts/graphs, axis labels, legends, titles, definitions, form fields/values). For EACH piece of information, describe its precise location (Text files: line/paragraph; Images/PDF pages: visual location like 'top-left', 'bar corresponding to 'Category A'', 'X-axis label', 'legend entry for Series 1'). Use bullet points for clarity.]
+        [Identify and extract crucial pieces of information relevant to the user's query (main points, arguments, data points from charts/graphs, axis labels, legends, titles, definitions, form fields/values). For EACH piece of information, describe its precise location (Text files: line/paragraph; Images/PDF pages: visual location like 'top-left', 'bar corresponding to 'Category A'', 'X-axis label', 'legend entry for Series 1'). Use bullet points for clarity.]
         * [Extracted Info 1]
             * Location: [Precise location description]
             * Confidence: [High, Medium, or Low]
         * [Extracted Info 2]
             * Location: [Precise location description]
             * Confidence: [High, Medium, or Low]
-        * ... (continue for all key pieces)
+        * ... (continue for all key pieces relevant to the user's request)
 
         **Category:**
         [Assign ONE category based on the content from this list: Lecture Notes, Essay Draft, Research Paper, Assignment Submission, Admin Form, Data Visualization, Other. If unsure, state 'Other'.]
+
+        ---
+        Respond *only* based on the user's request applied to the provided document content. Do not add information not present in the document.
         """
 
-        request_contents = request_contents_list + [Part.from_text(prompt)]
+        # --- Construct the final request content list ---
+        # Order: User Prompt -> File Content -> System Instructions
+        request_contents = [Part.from_text(user_prompt)] + request_contents_list + [Part.from_text(system_instructions)]
+        print(f"DEBUG: Final request_contents length: {len(request_contents)}")
+        print(f"DEBUG: First part type: {type(request_contents[0])}, Content snippet: {str(request_contents[0])[:100]}...") # Check user prompt part
+        print(f"DEBUG: Last part type: {type(request_contents[-1])}, Content snippet: {str(request_contents[-1])[:100]}...") # Check system instructions part
 
+        # --- Safety and Generation Config ---
         safety_settings = {
             generative_models.HarmCategory.HARM_CATEGORY_HATE_SPEECH: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
             generative_models.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: generative_models.HarmBlockThreshold.BLOCK_ONLY_HIGH,
@@ -313,64 +336,71 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
 
         generation_config = {
             "max_output_tokens": 2048,
-            "temperature": 0.3,
+            "temperature": 0.3, # Lower temperature for more factual/structured output
             "top_p": 0.95,
             "top_k": 40,
         }
 
+        # --- API Call ---
         logging.info(f"Sending request to Vertex AI Gemini model ({model_name_to_use}) for file: {os.path.basename(file_path)}...")
         print(f"DEBUG: Sending request with model: {model_name_to_use}")
+        # Ensure the model object is valid before calling generate_content
+        if not isinstance(model, GenerativeModel):
+             logging.error("Model object is not a valid GenerativeModel instance before API call.")
+             return "Error: Invalid model object before API call."
+
         responses = model.generate_content(
             request_contents,
             generation_config=generation_config,
             safety_settings=safety_settings,
-            stream=False,
+            stream=False, # Use stream=False for simpler response handling
         )
         logging.info(f"Received response from model for file: {os.path.basename(file_path)}.")
         print(f"DEBUG: Received response for {os.path.basename(file_path)}")
 
-        analysis_result = "Error: Failed to process model response."
+        # --- Response Processing ---
+        analysis_result = "Error: Failed to process model response." # Default error
         try:
-            if not responses.candidates:
-                 feedback_reason = responses.prompt_feedback.block_reason if hasattr(responses, 'prompt_feedback') and responses.prompt_feedback else "UNKNOWN"
-                 logging.error(f"Analysis failed for {os.path.basename(file_path)}. No candidates returned. Reason: {feedback_reason}.")
-                 print(f"DEBUG: No candidates in response. Reason: {feedback_reason}")
-                 analysis_result = f"Error: Analysis failed. No candidates returned. Reason: {feedback_reason}"
-            elif responses.candidates[0].finish_reason != FinishReason.STOP:
+            # Use the built-in .text property for convenience if available and valid
+            # It handles combining text parts and checks for blocked content.
+            analysis_result = responses.text
+            logging.info(f"Analysis complete for file: {os.path.basename(file_path)}.")
+            print(f"DEBUG: Analysis complete via responses.text. Result length: {len(analysis_result)}")
+
+        except ValueError as e:
+            # Handle cases where .text raises ValueError (e.g., blocked content, no text parts)
+            logging.warning(f"Could not directly access response.text: {e}. Checking finish reason and parts.")
+            print(f"DEBUG: ValueError accessing response.text: {e}")
+            # Check finish reason if available
+            finish_reason_name = "UNKNOWN"
+            if responses.candidates and responses.candidates[0].finish_reason != FinishReason.STOP:
                 try: finish_reason_name = FinishReason(responses.candidates[0].finish_reason).name
                 except ValueError: finish_reason_name = f"UNKNOWN_REASON_{responses.candidates[0].finish_reason}"
                 logging.error(f"Analysis stopped for {os.path.basename(file_path)} due to finish reason: {finish_reason_name}")
                 print(f"DEBUG: Analysis stopped. Finish Reason: {finish_reason_name}")
                 analysis_result = f"Error: Analysis stopped due to {finish_reason_name}."
-            elif not hasattr(responses.candidates[0], 'content') or not responses.candidates[0].content or not responses.candidates[0].content.parts:
-                 logging.error(f"Model response for {os.path.basename(file_path)} had no content parts.")
-                 print(f"DEBUG: Response has no content parts.")
-                 analysis_result = "Error: Model response was empty (no parts)."
+            # Check prompt feedback if available
+            elif hasattr(responses, 'prompt_feedback') and responses.prompt_feedback and responses.prompt_feedback.block_reason:
+                 feedback_reason = responses.prompt_feedback.block_reason
+                 logging.error(f"Analysis failed for {os.path.basename(file_path)}. Prompt blocked. Reason: {feedback_reason}.")
+                 print(f"DEBUG: Prompt blocked. Reason: {feedback_reason}")
+                 analysis_result = f"Error: Analysis failed. Prompt Blocked. Reason: {feedback_reason}"
+            # Check if there are any text parts manually as a fallback
+            elif responses.candidates and responses.candidates[0].content and responses.candidates[0].content.parts:
+                 text_parts = [part.text for part in responses.candidates[0].content.parts if hasattr(part, 'text')]
+                 if text_parts:
+                     analysis_result = " ".join(text_parts)
+                     if not analysis_result.strip(): analysis_result = "Error: Model response parts contained empty text."
+                 else: analysis_result = "Error: Could not parse text from model response parts (no text parts found)."
             else:
-                 try:
-                     print("DEBUG: Attempting to access response.text...")
-                     analysis_result = responses.text
-                     print("DEBUG: Accessed response.text successfully.")
-                 except ValueError as e:
-                     logging.warning(f"Could not directly access text from response: {e}.")
-                     print(f"DEBUG: ValueError accessing response.text: {e}")
-                     text_parts = [part.text for part in responses.candidates[0].content.parts if hasattr(part, 'text')]
-                     if text_parts:
-                         analysis_result = " ".join(text_parts)
-                         if not analysis_result.strip(): analysis_result = "Error: Model response parts contained empty text."
-                     else: analysis_result = "Error: Could not parse text from model response parts (no text parts found)."
-                 except Exception as e_text:
-                     logging.error(f"Unexpected error accessing response text: {e_text}", exc_info=True)
-                     print(f"DEBUG: Exception accessing response.text: {e_text}")
-                     analysis_result = f"Error: Unexpected error getting text from response: {e_text}"
+                analysis_result = f"Error: Analysis failed. Reason: {e}" # Use the ValueError message
 
         except Exception as e_resp:
+             # Catch any other unexpected errors during response processing
              logging.error(f"Unexpected error processing model response: {e_resp}", exc_info=True)
              print(f"DEBUG: Exception processing response: {e_resp}")
              analysis_result = f"Error: Unexpected error processing response: {e_resp}"
 
-        logging.info(f"Analysis complete for file: {os.path.basename(file_path)}.")
-        print(f"DEBUG: Analysis complete for {os.path.basename(file_path)}. Result length: {len(analysis_result)}")
         return analysis_result
 
     # --- Outer error handling ---
@@ -388,4 +418,3 @@ def analyze_content(file_path: str, model_id_override: str = None) -> str:
         return f"Error: An unexpected error occurred during analysis for {os.path.basename(file_path)}: {e}"
 
 # --- End of analyze_content function ---
-

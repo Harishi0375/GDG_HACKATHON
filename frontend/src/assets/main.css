@@ -1,10 +1,15 @@
+/* File: src/assets/main.css */
 @import './base.css';
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  max-width: 1280px; /* Or your preferred max width for the whole app */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem; /* Adjust padding as needed */
   font-weight: normal;
+  width: 100%; /* Allow it to take up available width up to max-width */
+  box-sizing: border-box; /* Include padding in width calculation */
+  /* Remove text-align: center; unless you want ALL text centered by default */
 }
 
 a,
@@ -23,13 +28,18 @@ a,
 
 @media (min-width: 1024px) {
   body {
-    display: flex;
-    place-items: center;
+    /* These can help with vertical centering if desired */
+    /* display: flex; */
+    /* place-items: center; */
+    /* min-height: 100vh; /* Ensure body takes full height */
+    padding: 0; /* Remove default body padding if flex is used */
   }
 
   #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
+    /* You can keep grid styles if needed for specific layouts */
+    /* display: grid; */
+    /* grid-template-columns: 1fr 1fr; */
+    /* Adjust padding for larger screens if needed */
+     padding: 0 2rem; /* Example */
   }
 }

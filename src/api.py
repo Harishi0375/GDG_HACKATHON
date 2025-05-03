@@ -1,56 +1,82 @@
 import os
 import tempfile
 import sys
-from flask import Flask, request, jsonify
-from werkzeug.utils import secure_filename # For secure filenames
+import logging
+import traceback
+from flask import Flask, request, jsonify, make_response
+from werkzeug.utils import secure_filename
+from flask_cors import CORS
 
-# --- Add src path --- Ensure this matches your project structure
-# Assuming api_server.py is in the root, same level as 'src/' and 'frontend/'
-project_root = os.path.abspath(os.path.dirname(__file__))
-src_path = os.path.join(project_root, 'src')
-if src_path not in sys.path:
-    sys.path.insert(0, src_path)
-    print(f"Added {src_path} to sys.path")
+# --- Configure Logging ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("google.api_core").setLevel(logging.WARNING)
+logging.getLogger("google.auth").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+# --- Add src path ---
+src_dir = os.path.abspath(os.path.dirname(__file__))
+logging.info(f"Script directory (assumed src): {src_dir}")
+if os.path.isdir(src_dir):
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+        logging.info(f"Added {src_dir} to sys.path")
+    else:
+        logging.info(f"{src_dir} already in sys.path")
+else:
+    logging.error(f"Script directory not found: {src_dir}")
+    raise FileNotFoundError(f"Script directory not found: {src_dir}")
+
+# --- Import Project Modules ---
 try:
-    # Import your existing handler logic from the 'src' directory
+    # Import the function(s) we need
     from vllm_handler import analyze_content, initialize_vertex_ai
-    print("Successfully imported from vllm_handler.")
+    logging.info("Successfully imported from vllm_handler.")
 except ImportError as e:
-    print(f"Error importing from vllm_handler (path: {src_path}): {e}")
-    # Define dummy functions if import fails, so Flask can at least start
-    def initialize_vertex_ai(): print("WARN: Using dummy initialize_vertex_ai"); return True
-    def analyze_content(fp, model_id_override=None): print(f"WARN: Using dummy analyze_content for {fp}"); return f"Dummy analysis for {os.path.basename(fp)}"
+    logging.error(f"Error importing from vllm_handler (checked sys.path, including {src_dir}): {e}")
+    # Define dummy functions if import fails
+    def initialize_vertex_ai(): logging.warning("Using dummy initialize_vertex_ai"); return True
+    def analyze_content(fp, user_prompt, model_id_override=None): # Add user_prompt to dummy signature
+        logging.warning(f"Using dummy analyze_content for {fp} with prompt '{user_prompt}'")
+        return f"Dummy analysis for {os.path.basename(fp)} based on prompt: '{user_prompt}'"
 
+# --- Initialize Flask App and CORS ---
 app = Flask(__name__)
+CORS(app) # Enable CORS for all origins by default for local testing
 
-# --- Configuration ---
-# Allow larger file uploads if needed (e.g., 50MB limit)
-# app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-
-# Initialize Vertex AI once when the server starts
-print("Initializing Vertex AI for API server...")
+# --- Initialize Vertex AI ---
+logging.info("Initializing Vertex AI for API server...")
 if not initialize_vertex_ai():
-    print("FATAL: Could not initialize Vertex AI on server startup.")
-    # Consider exiting if Vertex AI is essential for the server to function
+    logging.critical("FATAL: Could not initialize Vertex AI on server startup.")
     # sys.exit("Vertex AI Initialization Failed")
 else:
-    print("Vertex AI initialized successfully.")
+    logging.info("Vertex AI initialized successfully.")
 
-
-@app.route('/api/analyze', methods=['POST'])
+# --- API Endpoint ---
+@app.route('/api/analyze', methods=['POST', 'OPTIONS'])
 def handle_analyze():
-    print("Received request to /api/analyze") # Debug print
+    # Handle CORS preflight request
+    if request.method == 'OPTIONS':
+         return _build_cors_preflight_response()
+
+    # Handle POST request
+    logging.info("Received POST request to /api/analyze")
     if 'files' not in request.files:
-        print("Error: 'files' part not in request.files")
+        logging.error("Error: 'files' part not in request.files")
         return jsonify({"error": "No files part in the request"}), 400
 
-    files = request.files.getlist('files') # Handle multiple files
-    prompt_text = request.form.get('prompt', '') # Get the prompt text
-    print(f"Received {len(files)} file(s). Prompt: '{prompt_text}'")
+    files = request.files.getlist('files')
+    # --- Get the prompt text ---
+    prompt_text = request.form.get('prompt', '').strip() # Get and strip whitespace
+    # --- Log the received prompt ---
+    logging.info(f"Received {len(files)} file(s). Prompt: '{prompt_text}'")
+
+    # --- Add validation for prompt ---
+    if not prompt_text:
+        logging.error("Error: Prompt text is missing or empty.")
+        return jsonify({"error": "Prompt text is required"}), 400
 
     if not files or all(f.filename == '' for f in files):
-         print("Error: No files selected or files have no names")
+         logging.error("Error: No files selected or files have no names")
          return jsonify({"error": "No files selected"}), 400
 
     results = []
@@ -58,72 +84,83 @@ def handle_analyze():
 
     # Create a temporary directory for this request's files
     with tempfile.TemporaryDirectory() as tmpdir:
-        print(f"Created temporary directory: {tmpdir}")
+        logging.info(f"Created temporary directory: {tmpdir}")
         for file in files:
             if file.filename == '':
-                continue # Skip if no filename provided
+                logging.warning("Skipping file with empty filename.")
+                continue
 
-            # Secure the filename before saving
             filename = secure_filename(file.filename)
             temp_path = os.path.join(tmpdir, filename)
 
             try:
-                print(f"Saving temporary file: {temp_path}")
-                file.save(temp_path) # Save the uploaded file
-                print(f"File saved. Analyzing...")
+                logging.info(f"Saving temporary file: {temp_path}")
+                file.save(temp_path)
+                logging.info(f"File saved. Analyzing with prompt...")
 
-                # --- Call your backend logic ---
-                # Adapt this if analyze_content needs the prompt text as well
-                analysis_result = analyze_content(temp_path)
-                # --------------------------------
+                # --- MODIFIED: Call backend logic with prompt_text ---
+                analysis_result = analyze_content(temp_path, prompt_text)
+                # ----------------------------------------------------
 
-                print(f"Analysis result for {filename}: {analysis_result[:100]}...") # Log snippet
+                logging.info(f"Analysis result snippet for {filename}: {str(analysis_result)[:100]}...")
 
                 if isinstance(analysis_result, str) and analysis_result.startswith("Error:"):
-                     errors.append(f"{filename}: {analysis_result}")
+                     logging.warning(f"Analysis error for {filename}: {analysis_result}")
+                     errors.append({"filename": filename, "error": analysis_result})
                 else:
-                     # Store result associated with the original filename
                      results.append({
                          "filename": filename,
                          "analysis": analysis_result
                      })
 
             except Exception as e:
-                print(f"Error processing file {filename}: {e}")
-                import traceback
-                traceback.print_exc() # Print full traceback for debugging
-                errors.append(f"{filename}: Server processing error - {type(e).__name__}")
-            # temp_path is automatically cleaned up when exiting 'with' block
+                logging.error(f"Server error processing file {filename}: {e}")
+                traceback.print_exc()
+                errors.append({"filename": filename, "error": f"Server processing error - {type(e).__name__}"})
 
-    print(f"Finished processing. Results: {len(results)}, Errors: {len(errors)}")
+    logging.info(f"Finished processing. Results: {len(results)}, Errors: {len(errors)}")
+
+    # --- Construct Response ---
+    response_data = {}
+    status_code = 200
 
     if errors and not results:
-         return jsonify({"error": "Analysis failed for all files", "details": errors}), 500
+         response_data = {"error": "Analysis failed for all files", "details": errors}
+         status_code = 500
+         logging.error(f"Responding with 500 - All files failed: {errors}")
     elif errors:
-         # Return partial success with errors
-         return jsonify({"message": "Partial success", "results": results, "errors": errors}), 207 # 207 Multi-Status
+         response_data = {"message": "Partial success", "analysis": results, "errors": errors}
+         status_code = 207
+         logging.warning(f"Responding with 207 - Partial success. Results: {len(results)}, Errors: {len(errors)}")
     elif not results:
-         return jsonify({"error": "No analysis could be performed"}), 500
+         response_data = {"error": "No analysis could be performed (check file validity or logs)"}
+         status_code = 400
+         logging.warning("Responding with 400 - No analysis performed.")
     else:
-        # --- How to return multiple results? ---
-        # Option 1: Return only the first result (simplest for your current Vue code)
-        # final_analysis = results[0]['analysis']
+        # --- IMPORTANT: Return only the analysis part for single successful file ---
+        # If you always expect only one file, simplify the response structure
+        # For multiple files, returning the list `results` is correct as implemented
+        if len(results) == 1:
+             response_data = {"analysis": results[0]['analysis']} # Return only the analysis string
+        else:
+             # If handling multiple files, keep the list structure
+             response_data = {"analysis": results}
 
-        # Option 2: Concatenate results (if they are strings)
-        # final_analysis = "\n\n---\n\n".join([f"Analysis for {r['filename']}:\n{r['analysis']}" for r in results])
+        status_code = 200
+        logging.info(f"Responding with 200 - Success for {len(results)} file(s).")
 
-        # Option 3: Return the whole list (Vue code needs adjustment to display this)
-        final_analysis = results
+    return jsonify(response_data), status_code
 
-        print(f"Sending back analysis: {str(final_analysis)[:100]}...")
-        # For now, let's return the structure your Vue code might handle best (single string or first result)
-        # If you expect multiple files, returning the list (Option 3) is better, adjust Vue accordingly.
-        return jsonify({"analysis": results[0]['analysis'] if len(results) == 1 else results })
-        #-----------------------------------------
+# --- CORS Preflight Helper ---
+def _build_cors_preflight_response():
+    response = make_response()
+    response.headers.add("Access-Control-Allow-Origin", "*") # Adjust for production
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "POST, OPTIONS")
+    logging.info("Responded to CORS preflight (OPTIONS) request.")
+    return response
 
+# --- Main Execution ---
 if __name__ == '__main__':
-    # Run on port 5000 for local development
-    # debug=True auto-reloads when code changes and provides a debugger
-    # Use host='0.0.0.0' if you need to access it from another device on your network
-    print("Starting Flask server on http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    logging.info("Starting Flask server on http://127.0.0.1:5000")
+    app.run(debug=True, port=5000) # Ensure debug=True for development auto-reload
