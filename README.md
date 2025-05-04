@@ -122,6 +122,12 @@ The project consists of a web-based frontend for user interaction and a Python b
   <img src="./graphs/architecture_overview.png" alt="Architecture Overview" width="75%">
   </p>
 
+The screenshot below demonstrates the application's core functionality in action. A PDF document, uploaded via the frontend interface, is successfully processed by the backend API. The fine-tuned Vertex AI model analyzes the content based on the user's prompt, returning the structured analysis displayed in the results area.
+
+<p align="center">
+  <img src="./graphs/example_test.png" alt="Ai result" width="75%">
+  </p>
+
 ### 3.2. Frontend Application
 
 * **Framework:** Vue.js (v3) with Vite for building.
