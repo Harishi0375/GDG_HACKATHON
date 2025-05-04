@@ -295,9 +295,11 @@ Navigate to the [Live Application URL](https://harishi0375.github.io/GDG_HACKATH
 * Once complete, the analysis text provided by the Gemini model will be displayed in the main results area within a `<pre>` block to preserve formatting.
 * If an error occurs during analysis or communication, an error message will be displayed instead.
 
-*(Placeholder: Add screenshots of the UI to the graphs/ folder and link them here)*
-* `<img src="./graphs/ui_prompt_page.png" alt="Prompt Page UI" width="60%">`
-* `<img src="./graphs/ui_results_page.png" alt="Results Page UI" width="60%">`
+* Please note sometimes the server might be slow, down or you might need to restart:
+<p align="center">
+  <img src="./graphs/error.png" alt="error page" width="75%">
+  </p>
+
 
 ---
 
