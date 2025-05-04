@@ -1,4 +1,4 @@
-# Codified Likeness Utility: Fine-Tuned Gemini for Document Analysis & Localization (GDG Hackathon 2025)
+# CLU (Codified Likeness Utility): Fine-Tuned Gemini for Document Analysis & Localization (GDG Hackathon 2025)
 
 **Event:** GDG on Campus Constructor University Bremen - Build with AI Hackathon (May 2-5, 2025)
 **Team Member:** Harishi
